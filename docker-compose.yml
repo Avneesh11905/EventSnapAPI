@@ -1,0 +1,99 @@
+name: eventsnap
+services:
+  # 1. PostgreSQL Database with pgvector pre-installed
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: eventsnap_db
+    environment:
+      POSTGRES_USER: avneesh
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: eventsnap_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+      - Observer-Network
+
+  # 2. RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: eventsnap_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - ./data/rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+  # 3. GPU Inference API (Local testing of Hugging Face Endpoints)
+  inference_api:
+    image: avneesh11905/inference_api:latest
+    container_name: eventsnap_inference
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./inference_api:/app
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+  # 4. Main API (The Orchestrator)
+  main_api:
+    image: avneesh11905/main_api:latest
+    container_name: eventsnap_main_api
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://avneesh:password@postgres:5432/eventsnap_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
+      - INFERENCE_API_URL=http://inference_api:5000
+      - MINIO_ENDPOINT=https://minio.aymahajan.in
+      - MINIO_ACCESS_KEY=avneesh
+      - MINIO_SECRET_KEY=avneesh@1981
+      - API_KEY=supersecret_eventsnap_key_2026
+    volumes:
+      - ./main_api:/app
+    depends_on:
+      - postgres
+      - rabbitmq
+      - inference_api
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+  # 5. Celery Worker (Background Processor)
+  celery_worker:
+    image: avneesh11905/main_api:latest
+    container_name: eventsnap_celery_worker
+    command: celery -A celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://avneesh:password@postgres:5432/eventsnap_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
+      - INFERENCE_API_URL=http://inference_api:5000
+      - MINIO_ENDPOINT=https://minio.aymahajan.in
+      - MINIO_ACCESS_KEY=avneesh
+      - MINIO_SECRET_KEY=avneesh@1981
+    volumes:
+      - ./main_api:/app
+    depends_on:
+      - postgres
+      - rabbitmq
+      - inference_api
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+networks:
+  Observer-Network:
+    external: true
+  Eventsnap-Network:
+    driver: bridge
