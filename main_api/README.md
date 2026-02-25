@@ -107,17 +107,16 @@ console.log(response.data);
 }
 ```
 
-### 3. Sort Attendee (High-Speed Matcher)
-The core feature: Finds an attendee in an encoded event. It sends 3 reference selfies to the GPU to get 3 exact embeddings, averages them into a "Master Embedding", and executes a rapid Postgres `<=>` cosine similarity search (< 0.4 distance).
+### 3. Encode Attendee (High-Precision Augmentation)
+Converts 3 raw attendee profile photos (front, left, right) into 9 augmented facial embeddings, ready for database sorting. Runs on a non-blocking asyncio thread pool.
 
 **Example `curl` Request:**
 ```bash
 curl -X 'POST' \
-  'http://localhost:8000/api/sort-attendee/' \
+  'http://localhost:8000/api/encode-attendee/' \
   -H 'X-API-Key: <YOUR_SECRET_API_KEY>' \
   -H 'Content-Type: application/json' \
   -d '{
-  "minio_folder_path": "events/summer_fest_2026",
   "attendee_images_base64": [
     "base64_string_1...",
     "base64_string_2...",
@@ -130,13 +129,61 @@ curl -X 'POST' \
 ```javascript
 import axios from 'axios';
 
-const response = await axios.post('http://localhost:8000/api/sort-attendee/', {
-  minio_folder_path: 'events/summer_fest_2026',
+const response = await axios.post('http://localhost:8000/api/encode-attendee/', {
   attendee_images_base64: [
     'base64_string_1...',
     'base64_string_2...',
     'base64_string_3...'
   ]
+}, {
+  headers: {
+    'X-API-Key': '<YOUR_SECRET_API_KEY>',
+    'Content-Type': 'application/json'
+  }
+});
+console.log(response.data.encodings); // Array of 9 embeddings
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Successfully generated 9 encodings from 3 reference images.",
+  "encodings": [
+    [0.012, -0.045, ...], 
+    [0.018, -0.052, ...],
+    ...
+  ]
+}
+```
+
+### 4. Sort Attendee (High-Speed Matcher)
+The core feature: Finds an attendee in an encoded event. It accepts the 9 precise encodings generated in the previous step, and executes a heavily optimized Postgres `pgvector` K-NN (K-Nearest Neighbors) matching query to confidently find the attendee in massive crowd datasets.
+
+**Example `curl` Request:**
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/api/sort-attendee/' \
+  -H 'X-API-Key: <YOUR_SECRET_API_KEY>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "minio_folder_path": "events/summer_fest_2026",
+  "attendee_encodings": [
+    [0.012, -0.045, ...],
+    [0.018, -0.052, ...]
+  ]
+}'
+```
+
+**Example `axios` (Next.js) Request:**
+```javascript
+import axios from 'axios';
+
+// Encodings from the previous '/encode-attendee/' step
+const encodingsArray = [[...], [...], ...]; 
+
+const response = await axios.post('http://localhost:8000/api/sort-attendee/', {
+  minio_folder_path: 'events/summer_fest_2026',
+  attendee_encodings: encodingsArray
 }, {
   headers: {
     'X-API-Key': '<YOUR_SECRET_API_KEY>',

@@ -20,7 +20,7 @@ app = FastAPI(
 )
 
 # API Key Security
-API_KEY_NAME = "X-Eventsnap-API-Key"
+API_KEY_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 def get_api_key(api_key: str = Depends(api_key_header)):
