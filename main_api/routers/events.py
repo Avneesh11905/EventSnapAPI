@@ -70,3 +70,39 @@ async def get_encoding_status(task_id: str):
         
     except Exception as e:
          return {"task_id": task_id, "status": "ERROR", "message": f"Failed to connect to backend: {str(e)}"}
+
+
+@router.get("/encode-count/{folder}")
+async def get_encoded_image_count(folder: str):
+    """
+    Returns the number of distinct images that have been encoded (face embeddings stored)
+    for the given event folder in the pgvector database.
+    """
+    import re
+    from database import engine
+    from sqlalchemy import text
+
+    # Sanitize folder name the same way the task does
+    clean = re.sub(r'[^a-zA-Z0-9_]', '_', folder).strip('_')
+    table_name = f"event_{clean}"
+
+    try:
+        async with engine.begin() as conn:
+            # Check if table exists first
+            result = await conn.execute(text(
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = :tbl)"
+            ), {"tbl": table_name})
+            exists = result.scalar()
+
+            if not exists:
+                return {"encoded_count": 0, "table_exists": False}
+
+            # Count distinct image paths (each image can have multiple face rows)
+            result = await conn.execute(text(
+                f'SELECT COUNT(DISTINCT image_path) FROM "{table_name}"'
+            ))
+            count = result.scalar() or 0
+
+            return {"encoded_count": count, "table_exists": True}
+    except Exception as e:
+        return {"encoded_count": 0, "error": str(e)}

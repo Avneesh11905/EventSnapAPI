@@ -1,6 +1,5 @@
 import asyncio
 from celery_app import celery_app
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, Column, String, Float, insert
 from sqlalchemy.dialects.postgresql import UUID
 from pgvector.sqlalchemy import Vector
@@ -51,10 +50,30 @@ async def async_encode_event(self, folder_path: str, max_faces: int, det_conf: f
     
     # 2. Fetch all keys in folder
     all_keys = await list_minio_images(folder_path)
-    total_images = len(all_keys)
+    
+    if len(all_keys) == 0:
+        return {"result": "No images found in folder.", "total": 0}
+    
+    # 2b. Query DB for already-encoded image paths and skip them
+    already_encoded = set()
+    table_name = f"event_{sanitize_folder_path(folder_path)}"
+    async with SessionLocal() as db:
+        result = await db.execute(
+            text(f'SELECT DISTINCT image_path FROM "{table_name}"')
+        )
+        already_encoded = {row[0] for row in result.fetchall()}
+    
+    new_keys = [k for k in all_keys if k not in already_encoded]
+    skipped = len(all_keys) - len(new_keys)
+    total_images = len(new_keys)
     
     if total_images == 0:
-        return {"result": "No images found in folder.", "total": 0}
+        return {"result": "All images already encoded.", "total": len(all_keys), "skipped": skipped}
+    
+    self.update_state(state='PROCESSING', meta={
+        'progress': 0, 'processed': 0, 'total': total_images,
+        'skipped': skipped, 'status': f'Skipped {skipped} already-encoded images. Processing {total_images} new images...'
+    })
         
     # 3. Pipeline process (Producer/Consumer Queue)
     batch_size = 64
@@ -68,7 +87,7 @@ async def async_encode_event(self, folder_path: str, max_faces: int, det_conf: f
         async def minio_downloader():
             """Producer: Fetches images constantly and stuffs them into the RAM queue."""
             for i in range(0, total_images, batch_size):
-                batch_keys = all_keys[i : i + batch_size]
+                batch_keys = new_keys[i : i + batch_size]
                 download_tasks = [download_minio_image_b64(s3_client, key) for key in batch_keys]
                 b64_images = await asyncio.gather(*download_tasks)
                 
@@ -127,7 +146,8 @@ async def async_encode_event(self, folder_path: str, max_faces: int, det_conf: f
                         'progress': progress_pct,
                         'processed': processed_count,
                         'total': total_images,
-                        'status': f'Processed {processed_count}/{total_images} images'
+                        'skipped': skipped,
+                        'status': f'Processed {processed_count}/{total_images} new images (skipped {skipped} already encoded)'
                     }
                 )
                 download_queue.task_done()

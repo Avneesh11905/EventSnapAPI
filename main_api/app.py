@@ -34,8 +34,8 @@ def get_api_key(api_key: str = Depends(api_key_header)):
 
 
 # Include Routers
-app.include_router(events.router, prefix="/api", tags=["Events"])#, dependencies=[Depends(get_api_key)]
-app.include_router(attendees.router, prefix="/api", tags=["Attendees"])#, dependencies=[Depends(get_api_key)]
+app.include_router(events.router, prefix="/api", tags=["Events"], dependencies=[Depends(get_api_key)])
+app.include_router(attendees.router, prefix="/api", tags=["Attendees"], dependencies=[Depends(get_api_key)])
 
 @app.get("/", tags=["Health"])
 def health_check():
