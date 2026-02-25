@@ -34,25 +34,31 @@ async def list_minio_images(folder_path: str) -> list[str]:
                     
     return keys
 
+def resize_image_bytes(image_data: bytes, max_size: int) -> str:
+    """Synchronous CPU-bound PIL operation to be run in a background thread."""
+    with Image.open(io.BytesIO(image_data)) as img:
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+            
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=85)
+        optimized_data = buffer.getvalue()
+        
+    return base64.b64encode(optimized_data).decode('utf-8')
+
 async def download_minio_image_b64(s3_client, key: str, max_size: int = 1024) -> str | None:
     """Download single image, resize it, and return as a Base64 string."""
     try:
         response = await s3_client.get_object(Bucket=settings.MINIO_BUCKET_NAME, Key=key)
         image_data = await response['Body'].read()
         
-        # Resize image using Pillow to reduce base64 size
-        with Image.open(io.BytesIO(image_data)) as img:
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-                
-            # thumbnail preserves aspect ratio, reducing max dimension to max_size
-            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        import asyncio
+        # Offload the resizing to a threadpool so it doesn't block the async loop
+        b64_str = await asyncio.to_thread(resize_image_bytes, image_data, max_size)
             
-            buffer = io.BytesIO()
-            img.save(buffer, format="JPEG", quality=85)
-            optimized_data = buffer.getvalue()
-            
-        return base64.b64encode(optimized_data).decode('utf-8')
+        return b64_str
     except Exception as e:
         print(f"Error downloading/resizing {key}: {e}")
         return None

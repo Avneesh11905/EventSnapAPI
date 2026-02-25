@@ -1,4 +1,4 @@
-onnxruntime-gpu==1.17.1
+onnxruntime-gpu>=1.24.2
 opencv-python-headless>=4.9.0
 numpy>=1.26.0,<2.0.0
 Pillow>=10.2.0
