@@ -109,8 +109,14 @@ async def sort_event_attendee(request: SortAttendeeRequest, db: AsyncSession = D
     
     # Quick sanity check: Does this table exist?
     from sqlalchemy import inspect
-    inspector = inspect(engine)
-    if not inspector.has_table(table_name):
+    # We MUST use `run_sync` to perform synchronous inspection across an AsyncEngine
+    async with engine.connect() as conn:
+        def check_table(sync_conn):
+            return inspect(sync_conn).has_table(table_name)
+            
+        has_table = await conn.run_sync(check_table)
+        
+    if not has_table:
          raise HTTPException(status_code=404, detail=f"No encoded data found for event {request.minio_folder_path}.")
          
     # 4. Search using pgvector Cosine similarity `<=>` operator. 
