@@ -22,6 +22,7 @@ def create_event_table_model(folder_path: str):
     # Class registry check to avoid redefining the same class
     if table_name in Base.metadata.tables:
         class EventModel(Base):
+            __tablename__ = table_name
             __table__ = Base.metadata.tables[table_name]
         return EventModel
         
@@ -89,9 +90,15 @@ async def async_encode_event(self, folder_path: str, max_faces: int, det_conf: f
             for i in range(0, total_images, batch_size):
                 batch_keys = new_keys[i : i + batch_size]
                 download_tasks = [download_minio_image_b64(s3_client, key) for key in batch_keys]
-                b64_images = await asyncio.gather(*download_tasks)
+                b64_images = await asyncio.gather(*download_tasks, return_exceptions=True)
                 
-                valid_pairs = [(key, b64) for key, b64 in zip(batch_keys, b64_images) if b64 is not None]
+                valid_pairs = []
+                for key, b64 in zip(batch_keys, b64_images):
+                    if isinstance(b64, Exception):
+                        print(f"Failed to download {key} after retries: {b64}")
+                    elif b64 is not None:
+                        valid_pairs.append((key, b64))
+
                 if valid_pairs:
                     await download_queue.put(valid_pairs)
             
