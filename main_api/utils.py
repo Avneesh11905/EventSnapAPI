@@ -4,6 +4,9 @@ import io
 from PIL import Image
 from aioboto3 import Session
 from botocore.config import Config
+from botocore.exceptions import ClientError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import asyncio
 
 from config import settings
 
@@ -48,20 +51,21 @@ def resize_image_bytes(image_data: bytes, max_size: int) -> str:
         
     return base64.b64encode(optimized_data).decode('utf-8')
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((ClientError, asyncio.TimeoutError, ConnectionError)),
+    reraise=True
+)
 async def download_minio_image_b64(s3_client, key: str, max_size: int = 1024) -> str | None:
     """Download single image, resize it, and return as a Base64 string."""
-    try:
-        response = await s3_client.get_object(Bucket=settings.MINIO_BUCKET_NAME, Key=key)
-        image_data = await response['Body'].read()
+    response = await s3_client.get_object(Bucket=settings.MINIO_BUCKET_NAME, Key=key)
+    image_data = await response['Body'].read()
+    
+    # Offload the resizing to a threadpool so it doesn't block the async loop
+    b64_str = await asyncio.to_thread(resize_image_bytes, image_data, max_size)
         
-        import asyncio
-        # Offload the resizing to a threadpool so it doesn't block the async loop
-        b64_str = await asyncio.to_thread(resize_image_bytes, image_data, max_size)
-            
-        return b64_str
-    except Exception as e:
-        print(f"Error downloading/resizing {key}: {e}")
-        return None
+    return b64_str
 
 async def call_inference_api(
     b64_images: list[str], 

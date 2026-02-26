@@ -106,3 +106,35 @@ async def get_encoded_image_count(folder: str):
             return {"encoded_count": count, "table_exists": True}
     except Exception as e:
         return {"encoded_count": 0, "error": str(e)}
+    
+@router.delete("/delete-event-table/{folder}")
+async def delete_event_table(folder: str):
+    """
+    Drops the pgvector table associated with the given event folder.
+    This should be called when an event is deleted from the dashboard
+    to prevent stale data buildup.
+    """
+    import re
+    from database import engine
+    from sqlalchemy import text
+
+    # Sanitize folder name the same way the task does
+    clean = re.sub(r'[^a-zA-Z0-9_]', '_', folder).strip('_')
+    table_name = f"event_{clean}"
+
+    try:
+        async with engine.begin() as conn:
+            # Drop the table if it exists
+            await conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}" CASCADE'))
+            
+        return {
+            "success": True, 
+            "message": f"Table '{table_name}' deleted successfully if it existed.",
+            "table_name": table_name
+        }
+    except Exception as e:
+        return {
+            "success": False, 
+            "error": str(e),
+            "table_name": table_name
+        }

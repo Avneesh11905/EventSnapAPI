@@ -105,7 +105,7 @@ async def sort_event_attendee(request: SortAttendeeRequest, db: AsyncSession = D
     
     # 3. Reference Dynamic Table explicitly
     EventModel = create_event_table_model(request.minio_folder_path)
-    table_name = EventModel.__tablename__
+    table_name = EventModel.__table__.name
     
     # Quick sanity check: Does this table exist?
     from sqlalchemy import inspect
@@ -121,21 +121,23 @@ async def sort_event_attendee(request: SortAttendeeRequest, db: AsyncSession = D
          
     # 4. Search using pgvector Cosine similarity `<=>` operator. 
     # Distances < 0.4 generally correspond to high facial certainty threshold.
-    SIMILARITY_THRESHOLD = 0.4
+    # Upping to 0.55 for better recall across different orientations/lighting.
+    SIMILARITY_THRESHOLD = 0.55
     
     # Optimized raw SQL string grouping all 9 encodings into a Common Table Expression
     # We evaluate every event photo against every reference profile.
-    # K-NN Logic: An event photo MUST match at least 3 of the 9 attendee profiles to be valid.
+    # K-NN Logic: An event photo MUST match at least 2 of the 9 attendee profiles to be valid.
+    # CRITICAL: Table name MUST be double-quoted to handle mixed-case (e.g. event_TLD21Q).
     query_str = f"""
         WITH ref_encodings(id, embedding) AS (
             VALUES {values_clause}
         )
         SELECT p.image_path, COUNT(e.id) as match_count, MIN(p.embedding <=> e.embedding) as best_distance
-        FROM {table_name} p
+        FROM "{table_name}" p
         CROSS JOIN ref_encodings e
         WHERE p.embedding <=> e.embedding < :threshold
         GROUP BY p.image_path
-        HAVING COUNT(e.id) >= 3
+        HAVING COUNT(e.id) >= 2
         ORDER BY match_count DESC, best_distance ASC
     """
     query = text(query_str)
@@ -144,7 +146,32 @@ async def sort_event_attendee(request: SortAttendeeRequest, db: AsyncSession = D
         "threshold": SIMILARITY_THRESHOLD
     })
     
-    matched_paths = [row[0] for row in result.all()]
+    rows = result.all()
+    matched_paths = [row[0] for row in rows]
+
+    # --- Debug Logging ---
+    print(f"--- Attendee Sort Debug for {request.minio_folder_path} ---")
+    print(f"Threshold: {SIMILARITY_THRESHOLD}, Min Match Count: 2")
+    print(f"Matches found: {len(matched_paths)}")
+    
+    if not matched_paths:
+        # If no matches, let's see why. Log the closest 5 images regardless of threshold/count
+        debug_query = text(f"""
+            WITH ref_encodings(id, embedding) AS (
+                VALUES {values_clause}
+            )
+            SELECT p.image_path, COUNT(e.id) as match_count, MIN(p.embedding <=> e.embedding) as best_distance
+            FROM "{table_name}" p
+            CROSS JOIN ref_encodings e
+            GROUP BY p.image_path
+            ORDER BY best_distance ASC
+            LIMIT 5
+        """)
+        debug_result = await db.execute(debug_query)
+        print("Closest 5 images (ignoring thresholds):")
+        for dr in debug_result.all():
+            print(f"Path: {dr[0]} | Match Count: {dr[1]} | Best Distance: {dr[2]:.4f}")
+    # ---------------------
     
     return {
         "event": request.minio_folder_path,
