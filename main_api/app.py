@@ -34,8 +34,33 @@ def get_api_key(api_key: str = Depends(api_key_header)):
 
 
 # Include Routers
-app.include_router(events.router, prefix="/api", tags=["Events"], dependencies=[Depends(get_api_key)])
-app.include_router(attendees.router, prefix="/api", tags=["Attendees"], dependencies=[Depends(get_api_key)])
+app.include_router(events.router, prefix="/api/events", tags=["Events"], dependencies=[Depends(get_api_key)])
+app.include_router(attendees.router, prefix="/api/attendees", tags=["Attendees"], dependencies=[Depends(get_api_key)])
+
+@app.get("/api/tasks/{task_id}", tags=["Tasks"], dependencies=[Depends(get_api_key)])
+def get_task_status(task_id: str):
+    """Checks the status of any Celery task."""
+    from celery.result import AsyncResult
+    from celery_app import celery_app
+    
+    res = AsyncResult(task_id, app=celery_app)
+    
+    response = {
+        "task_id": task_id,
+        "status": res.status,
+    }
+    
+    if res.ready():
+        if res.successful():
+            response["result"] = res.result
+        else:
+            response["error"] = str(res.result)
+    else:
+        # Include progress metadata if available
+        if isinstance(res.info, dict):
+            response.update(res.info)
+            
+    return response
 
 @app.get("/", tags=["Health"])
 def health_check():

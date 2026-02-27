@@ -1,5 +1,5 @@
 import asyncio
-from celery_app import celery_app
+from celery import shared_task
 from sqlalchemy import text, Column, String, Float, insert
 from sqlalchemy.dialects.postgresql import UUID
 from pgvector.sqlalchemy import Vector
@@ -22,7 +22,6 @@ def create_event_table_model(folder_path: str):
     # Class registry check to avoid redefining the same class
     if table_name in Base.metadata.tables:
         class EventModel(Base):
-            __tablename__ = table_name
             __table__ = Base.metadata.tables[table_name]
         return EventModel
         
@@ -73,8 +72,10 @@ async def async_encode_event(self, folder_path: str, max_faces: int, det_conf: f
     
     self.update_state(state='PROCESSING', meta={
         'progress': 0, 'processed': 0, 'total': total_images,
-        'skipped': skipped, 'status': f'Skipped {skipped} already-encoded images. Processing {total_images} new images...'
+        'skipped': skipped, 'status_msg': f'Skipped {skipped} already-encoded images. Processing {total_images} new images...'
     })
+    
+    progress_pct = 0
         
     # 3. Pipeline process (Producer/Consumer Queue)
     batch_size = 64
@@ -154,7 +155,7 @@ async def async_encode_event(self, folder_path: str, max_faces: int, det_conf: f
                         'processed': processed_count,
                         'total': total_images,
                         'skipped': skipped,
-                        'status': f'Processed {processed_count}/{total_images} new images (skipped {skipped} already encoded)'
+                        'status_msg': f'Processed {processed_count}/{total_images} new images (skipped {skipped} already encoded)'
                     }
                 )
                 download_queue.task_done()
@@ -162,7 +163,101 @@ async def async_encode_event(self, folder_path: str, max_faces: int, det_conf: f
         # Run Producer and Consumer concurrently
         await asyncio.gather(minio_downloader(), hf_inferencer())
 
-@celery_app.task(bind=True, name="encode_event_task")
+async def async_create_event_zip(self, event_id: str, user_id: str, image_paths: list[dict]):
+    """
+    Downloads matched photos from MinIO, zips them, and uploads the final ZIP back to MinIO.
+    image_paths is a list of {filename: str, path: str}
+    """
+    total = len(image_paths)
+    if total == 0:
+        return {"error": "No images to zip"}
+
+    self.update_state(state='INITIALIZING', meta={'progress': 0, 'status_msg': f'Starting ZIP for {total} images...'})
+
+    import zipfile
+    import tempfile
+    import os
+    
+    zip_filename = f"{user_id}.zip"
+    storage_path = f"zips/{event_id}/{zip_filename}"
+    
+    s3_config = Config(max_pool_connections=10, retries={'max_attempts': 0}) # We handle retries manually
+    
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp:
+            tmp_path = tmp.name
+            progress_pct = 0
+            
+            async with get_minio_session().client('s3', endpoint_url=settings.MINIO_ENDPOINT, config=s3_config) as s3_client:
+                with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for i, img in enumerate(image_paths):
+                        filename = img['filename']
+                        key = img['path']
+                        
+                        # Manual retry loop with exponential backoff
+                        max_retries = 3
+                        success = False
+                        for attempt in range(max_retries + 1):
+                            try:
+                                response = await s3_client.get_object(Bucket=settings.MINIO_BUCKET_NAME, Key=key)
+                                data = await response['Body'].read()
+                                zf.writestr(filename, data)
+                                success = True
+                                break
+                            except Exception as e:
+                                if attempt < max_retries:
+                                    wait = (2 ** attempt) + 1
+                                    self.update_state(
+                                        state='RETRYING',
+                                        meta={
+                                            'progress': progress_pct,
+                                            'status_msg': f'Retry {attempt+1}/{max_retries} for {filename}...'
+                                        }
+                                    )
+                                    await asyncio.sleep(wait)
+                                else:
+                                    print(f"Permanent failure for {key} after {max_retries} retries: {e}")
+                        
+                        # Update progress
+                        progress_pct = int(((i + 1) / total) * 90) # Leave 10% for upload
+                        self.update_state(
+                            state='PROCESSING',
+                            meta={
+                                'progress': progress_pct,
+                                'status_msg': f'Downloaded {i+1}/{total} images'
+                            }
+                        )
+                
+                # 4. Upload the final ZIP
+                self.update_state(state='UPLOADING', meta={'progress': 95, 'status_msg': 'Uploading ZIP to storage...'})
+                with open(tmp_path, 'rb') as f:
+                    await s3_client.put_object(
+                        Bucket=settings.MINIO_BUCKET_NAME,
+                        Key=storage_path,
+                        Body=f,
+                        ContentType='application/zip'
+                    )
+            
+            # Cleanup
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+                
+        return {
+            "status": "COMPLETED",
+            "progress": 100,
+            "zip_path": storage_path,
+            "filename": zip_filename
+        }
+    except Exception as e:
+        self.update_state(state='FAILED', meta={'error': str(e)})
+        raise e
+
+@shared_task(bind=True, name="create_event_zip_task")
+def create_event_zip_task(self, event_id: str, user_id: str, image_paths: list[dict]):
+    """Entrypoint for background ZIP generation."""
+    return asyncio.run(async_create_event_zip(self, event_id, user_id, image_paths))
+
+@shared_task(bind=True, name="encode_event_task")
 def encode_event_task(self, folder_path: str, max_faces: int = 0, det_conf: float = 0.5, nms_thresh: float = 0.4):
     """
     Celery entrypoint. Since Celery worker processes are synchronous, 

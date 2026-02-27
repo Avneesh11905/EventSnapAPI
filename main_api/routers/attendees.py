@@ -178,3 +178,43 @@ async def sort_event_attendee(request: SortAttendeeRequest, db: AsyncSession = D
         "matches_found": len(matched_paths),
         "photos": matched_paths
     }
+
+class GenerateZipRequest(BaseModel):
+    event_id: str
+    user_id: str
+    image_paths: list[dict] # [{filename, path}]
+
+@router.post("/generate-zip/")
+async def generate_zip(request: GenerateZipRequest):
+    """Triggers the background ZIP generation task."""
+    from tasks import create_event_zip_task
+    
+    task = create_event_zip_task.delay(
+        request.event_id,
+        request.user_id,
+        request.image_paths
+    )
+    
+    return {
+        "success": True,
+        "task_id": task.id,
+        "message": "ZIP generation started in background"
+    }
+@router.get("/check-zip/{event_id}/{user_id}")
+async def check_zip(event_id: str, user_id: str):
+    """Checks if a ZIP file already exists in MinIO for this attendee and event."""
+    from utils import get_minio_session
+    from config import settings
+    
+    zip_key = f"zips/{event_id}/{user_id}.zip"
+    
+    async with get_minio_session().client('s3', endpoint_url=settings.MINIO_ENDPOINT) as s3:
+        try:
+            await s3.head_object(Bucket=settings.MINIO_BUCKET_NAME, Key=zip_key)
+            return {
+                "exists": True,
+                "zip_path": zip_key,
+                "filename": f"{user_id}.zip"
+            }
+        except Exception:
+            return {"exists": False}
