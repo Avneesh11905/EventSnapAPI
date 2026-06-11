@@ -5,7 +5,7 @@ services:
     image: ankane/pgvector:latest
     container_name: eventsnap_db
     environment:
-      POSTGRES_USER: avneesh
+      POSTGRES_USER: username
       POSTGRES_PASSWORD: password
       POSTGRES_DB: eventsnap_db
     ports:
@@ -15,7 +15,6 @@ services:
     restart: unless-stopped
     networks:
       - Eventsnap-Network
-      - Observer-Network
 
   # 2. RabbitMQ Message Broker
   rabbitmq:
@@ -35,7 +34,7 @@ services:
 
   # 3. GPU Inference API (Local testing of Hugging Face Endpoints)
   inference_api:
-    image: avneesh11905/inference_api:latest
+    build: ./inference_api
     container_name: eventsnap_inference
     ports:
       - "5000:5000"
@@ -47,18 +46,19 @@ services:
 
   # 4. Main API (The Orchestrator)
   main_api:
-    image: avneesh11905/main_api:latest
+    build: ./main_api
     container_name: eventsnap_main_api
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://avneesh:password@postgres:5432/eventsnap_db
+      - DATABASE_URL=postgresql+asyncpg://username:password@postgres:5432/eventsnap_db
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
       - INFERENCE_API_URL=http://inference_api:5000
-      - MINIO_ENDPOINT=https://minio.aymahajan.in
-      - MINIO_ACCESS_KEY=avneesh
-      - MINIO_SECRET_KEY=avneesh@1981
+      - MINIO_ACCESS_KEY=
+      - MINIO_SECRET_KEY=
+      - MINIO_BUCKET_NAME=eventsnap
+      - MINIO_ENDPOINT=http://minio:9000
       - API_KEY=supersecret_eventsnap_key_2026
     volumes:
       - ./main_api:/app
@@ -72,16 +72,17 @@ services:
 
   # 5. Celery Worker (Background Processor)
   celery_worker:
-    image: avneesh11905/main_api:latest
+    build: ./main_api
     container_name: eventsnap_celery_worker
     command: celery -A celery_app worker --loglevel=info
     environment:
-      - DATABASE_URL=postgresql+asyncpg://avneesh:password@postgres:5432/eventsnap_db
+      - DATABASE_URL=postgresql+asyncpg://username:password@postgres:5432/eventsnap_db
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672//
       - INFERENCE_API_URL=http://inference_api:5000
-      - MINIO_ENDPOINT=https://minio.aymahajan.in
-      - MINIO_ACCESS_KEY=avneesh
-      - MINIO_SECRET_KEY=avneesh@1981
+      - MINIO_ACCESS_KEY=
+      - MINIO_SECRET_KEY=
+      - MINIO_BUCKET_NAME=eventsnap
+      - MINIO_ENDPOINT=http://minio:9000
     volumes:
       - ./main_api:/app
     depends_on:
@@ -93,7 +94,5 @@ services:
       - Eventsnap-Network
 
 networks:
-  Observer-Network:
-    external: true
   Eventsnap-Network:
     driver: bridge

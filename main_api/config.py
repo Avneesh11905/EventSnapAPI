@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 class Settings(BaseSettings):
     API_KEY: str 
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET_NAME: str 
     
     INFERENCE_API_URL: str 
-    INFERENCE_API_TOKEN: str
+    INFERENCE_API_TOKEN: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
