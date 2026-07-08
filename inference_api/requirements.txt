@@ -1,4 +1,5 @@
-onnxruntime-gpu>=1.24.2
+--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+onnxruntime-gpu==1.19.2
 opencv-python-headless>=4.9.0
 numpy>=1.26.0,<2.0.0
 Pillow>=10.2.0

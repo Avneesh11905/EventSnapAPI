@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
@@ -14,8 +14,10 @@ RUN pip install --default-timeout=1000 --retries=10 --no-cache-dir -r requiremen
 # Copy the rest of the application
 COPY . .
 
+ENV PYTHONPATH=/app
+
 # Expose FastAPI port
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["gunicorn", "presentation.api.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]

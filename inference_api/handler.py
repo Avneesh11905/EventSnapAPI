@@ -123,3 +123,12 @@ class EndpointHandler:
         finally:
             self.detector.confidence = original_conf
             self.detector.nms_threshold = original_nms
+            
+            # Explicitly delete large variables to free memory references
+            if 'cv_images' in locals(): del cv_images
+            if 'batch_faces' in locals(): del batch_faces
+            if 'all_aligned_faces' in locals(): del all_aligned_faces
+            if 'all_embeddings' in locals(): del all_embeddings
+            
+            import gc
+            gc.collect()

@@ -28,6 +28,8 @@ RUN pip install --default-timeout=1000 --retries=10 --no-cache-dir -r requiremen
 
 COPY . .
 
+ENV PYTHONPATH=/app
+
 EXPOSE 5000
 
 # Start the local testing server for the inference API

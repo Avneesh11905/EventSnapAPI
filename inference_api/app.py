@@ -15,6 +15,10 @@ app = FastAPI(title="Eventsnap Inference API", description="Local testing server
 # Initialize the Hugging Face custom handler
 handler = EndpointHandler(path=".")
 
+from concurrent.futures import ThreadPoolExecutor
+
+inference_executor = ThreadPoolExecutor(max_workers=1)
+
 @app.post("/")
 async def predict(request: Request):
     """
@@ -23,12 +27,21 @@ async def predict(request: Request):
     """
     try:
         tt = time.perf_counter()
-        data = await request.json()
+        
+        # Support GZIP compressed requests for faster network transfer
+        body = await request.body()
+        if body.startswith(b'\x1f\x8b'):
+            import gzip
+            body = gzip.decompress(body)
+            
+        import json
+        data = json.loads(body)
+        
         logger.info(f"recieved request {len(data.get('inputs', data))} images")
         if not data:
             return JSONResponse(content={"error": "Empty JSON payload"}, status_code=400)
         
-        result = await asyncio.to_thread(handler, data)
+        result = await asyncio.get_running_loop().run_in_executor(inference_executor, handler, data)
         
         # If the handler returned an error key, it failed gracefully
         if isinstance(result, dict) and "error" in result:
