@@ -78,6 +78,7 @@ class FaceDetector:
 
         providers = _get_providers(device)
         sess_opts = ort.SessionOptions()
+        sess_opts.add_session_config_entry("session.memory.enable_memory_arena_shrinkage", "gpu:0")
         if num_threads > 0:
             sess_opts.intra_op_num_threads = num_threads
             sess_opts.inter_op_num_threads = 1
@@ -312,19 +313,9 @@ class FaceDetector:
             return []
 
         if not self.batch_supported:
-            import concurrent.futures
-            
-            # Determine an optimal pool size for concurrent pseudo-batching
-            # Limited to 4 workers to prevent CUBLAS_STATUS_ALLOC_FAILED (GPU OOM) on CUDA
-            workers = min(len(images), 4)
-            
-            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                # Submit all images to be detected concurrently
-                futures = [executor.submit(self.detect, img, max_faces) for img in images]
-                
-                # Gather results in the exact order they were submitted
-                results = [future.result() for future in futures]
-                
+            results = []
+            for img in images:
+                results.append(self.detect(img, max_faces))
             return results
 
         batch_size = len(images)
