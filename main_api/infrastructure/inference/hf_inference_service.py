@@ -1,12 +1,11 @@
-from application.ports.inference import InferenceService
+from application.ports.inference import IInferenceService
 import httpx
 from typing import List, Dict
 
 
-class HFInferenceService(InferenceService):
-    def __init__(self, api_url: str, api_token: str | None = None):
+class HFInferenceService(IInferenceService):
+    def __init__(self, api_url: str):
         self.api_url = api_url
-        self.api_token = api_token
 
     async def get_face_encodings(
         self,
@@ -16,9 +15,6 @@ class HFInferenceService(InferenceService):
         nms_threshold: float = 0.4,
     ) -> List[List[Dict]]:
         headers = {"Content-Type": "application/json"}
-        if self.api_token:
-            headers["Authorization"] = f"Bearer {self.api_token}"
-
         payload = {
             "inputs": b64_images,
             "parameters": {

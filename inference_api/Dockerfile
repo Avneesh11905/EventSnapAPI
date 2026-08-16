@@ -30,11 +30,14 @@ WORKDIR /app
 # Copy virtual environment from builder
 COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
 
-# Copy local source code
-COPY --chown=appuser:appgroup . .
+# Copy ONLY download_models.py first to cache the model download layer
+COPY --chown=appuser:appgroup download_models.py .
 
-# Download Hugging Face ONNX Models inside the image
+# Download ONNX Models (this layer will now cache perfectly unless download_models.py changes)
 RUN /app/.venv/bin/python download_models.py
+
+# Now copy the rest of the local source code
+COPY --chown=appuser:appgroup . .
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app

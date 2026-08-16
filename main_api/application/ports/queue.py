@@ -1,7 +1,7 @@
 from typing import Any, Dict, Protocol
 
 
-class TaskQueueService(Protocol):
+class ITaskQueueService(Protocol):
     def enqueue_encode_event(
         self,
         folder_path: str,

@@ -1,7 +1,7 @@
 from typing import List, Protocol
 
 
-class StorageService(Protocol):
+class IStorageService(Protocol):
     async def list_images(self, folder_path: str) -> List[str]:
         pass
 

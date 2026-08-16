@@ -1,20 +1,20 @@
-from application.ports.storage import StorageService
-from application.ports.inference import InferenceService
-from application.ports.repository import EventRepository
-from application.ports.queue import TaskQueueService
+from application.ports.storage import IStorageService
+from application.ports.inference import IInferenceService
+from application.ports.repository import IEventRepository
+from application.ports.queue import ITaskQueueService
 import asyncio
 from typing import Callable, Any
 import uuid
 from domain.exceptions import ZipGenerationError, StorageDownloadError, InferenceError
-from application.dtos import BackgroundEncodingResult, BackgroundZipResult
+from application.dtos import BackgroundEncodingResult, BackgroundZipResult, EventEncodingDTO
 
 
 class EncodeImageBatchUseCase:
     def __init__(
         self,
-        storage_service: StorageService,
-        inference_service: InferenceService,
-        repository: EventRepository,
+        storage_service: IStorageService,
+        inference_service: IInferenceService,
+        repository: IEventRepository,
     ):
         self.storage_service = storage_service
         self.inference_service = inference_service
@@ -28,8 +28,7 @@ class EncodeImageBatchUseCase:
         det_conf: float,
         nms_thresh: float,
     ) -> None:
-        base_folder = f"event/{event_code}"
-        
+
         batch_thumb_keys = [k.replace("/raw/", "/thumbs/", 1) for k in keys]
         download_tasks = [
             self.storage_service.download_image_b64(key)
@@ -61,16 +60,17 @@ class EncodeImageBatchUseCase:
                     conf = face.get("confidence")
                     if emb and conf:
                         insert_data.append(
-                            {
-                                "id": uuid.uuid4(),
-                                "image_path": key,
-                                "embedding": emb,
-                                "confidence": conf,
-                            }
+                            EventEncodingDTO(
+                                id=uuid.uuid7(),
+                                event_code=event_code,
+                                image_path=key,
+                                embedding=emb,
+                                confidence=conf,
+                            )
                         )
 
             if insert_data:
-                await self.repository.save_encodings(base_folder, insert_data)
+                await self.repository.save_encodings(insert_data)
         except Exception as e:
             raise InferenceError(f"Failed to infer batch: {e}")
 
@@ -78,9 +78,9 @@ class EncodeImageBatchUseCase:
 class ProcessEventEncodingUseCase:
     def __init__(
         self,
-        storage_service: StorageService,
-        repository: EventRepository,
-        queue_service: TaskQueueService,
+        storage_service: IStorageService,
+        repository: IEventRepository,
+        queue_service: ITaskQueueService,
     ):
         self.storage_service = storage_service
         self.repository = repository
@@ -101,8 +101,6 @@ class ProcessEventEncodingUseCase:
         base_folder = f"event/{event_code}"
         thumbs_folder = f"{base_folder}/thumbs"
 
-        await self.repository.create_event_table(base_folder)
-
         all_thumb_keys = await self.storage_service.list_images(thumbs_folder)
 
         if len(all_thumb_keys) == 0:
@@ -111,7 +109,7 @@ class ProcessEventEncodingUseCase:
             )
 
         all_raw_keys = [k.replace("/thumbs/", "/raw/", 1) for k in all_thumb_keys]
-        already_encoded = await self.repository.get_already_encoded_images(base_folder)
+        already_encoded = await self.repository.get_already_encoded_images(event_code)
 
         new_raw_keys = [k for k in all_raw_keys if k not in already_encoded]
         skipped = len(all_thumb_keys) - len(new_raw_keys)
@@ -162,7 +160,7 @@ class ProcessEventEncodingUseCase:
 
 
 class CreateEventZipUseCase:
-    def __init__(self, storage_service: StorageService):
+    def __init__(self, storage_service: IStorageService):
         self.storage_service = storage_service
 
     async def execute(

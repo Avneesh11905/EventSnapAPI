@@ -1,10 +1,10 @@
-from application.ports.queue import TaskQueueService
+from application.ports.queue import ITaskQueueService
 from celery.result import AsyncResult
 from typing import Any, Dict
 from infrastructure.queue.celery_app import celery_app
 
 
-class CeleryTaskQueueService(TaskQueueService):
+class CeleryTaskQueueService(ITaskQueueService):
     def enqueue_encode_event(
         self,
         folder_path: str,
