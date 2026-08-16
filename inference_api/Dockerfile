@@ -13,16 +13,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Stage 2: Final Runtime Image
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS final
+FROM python:3.11-slim AS final
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Python 3.11 and system dependencies for OpenCV runtime
+# Install system dependencies for OpenCV runtime
 RUN apt-get update && \
-    apt-get install -y software-properties-common curl procps libgl1 libglib2.0-0 && \
-    add-apt-repository ppa:deadsnakes/ppa -y && \
-    apt-get update && \
-    apt-get install -y python3.11 python3.11-venv python3.11-dev && \
+    apt-get install -y --no-install-recommends curl procps libgl1 libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system appgroup \
