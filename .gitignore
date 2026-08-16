@@ -1,6 +1,11 @@
 images/
-data/
+data/*/data
+data/minio
 tests/
 datasets/
 /**/__pycache__
-/**/.env
+/**/.env*
+!/**/.env.example
+/**/.venv
+/**/.mypy_cache
+/**/.ruff_cache

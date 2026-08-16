@@ -82,7 +82,7 @@ services:
 
   # 4. GPU Inference API (Local testing of Hugging Face Endpoints)
   es-inference_api:
-    image: avneesh11905/inference_api:latest
+    build: ./inference_api
     ports:
       - "5000:5000"
     env_file: *env-file
@@ -99,7 +99,7 @@ services:
 
   # 5. Database Migration (Init Container)
   es-db_migration:
-    image: avneesh11905/main_api:latest
+    build: ./main_api
     container_name: eventsnap_migration
     command: alembic upgrade head
     env_file: *env-file
@@ -111,7 +111,7 @@ services:
 
   # 6. Main API (The Orchestrator)
   es-main_api:
-    image: avneesh11905/main_api:latest
+    build: ./main_api
     ports:
       - "8000:8000"
     env_file: *env-file
@@ -130,7 +130,7 @@ services:
 
   # 7. Celery Worker (Background Processor)
   es-celery_worker:
-    image: avneesh11905/main_api:latest
+    build: ./main_api
     command: celery -A infrastructure.queue.celery_app worker --loglevel=info
     env_file: *env-file
     depends_on:

@@ -17,11 +17,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project --no-dev
 
-# Copy the rest of the application and sync project
-COPY . .
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
-
 
 # Stage 2: Final Runtime Image
 FROM python:3.14-slim-trixie AS final

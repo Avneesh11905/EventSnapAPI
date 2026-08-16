@@ -1,10 +1,10 @@
-from application.ports.queue import TaskQueueService
-from application.ports.repository import EventRepository
+from application.ports.queue import ITaskQueueService
+from application.ports.repository import IEventRepository
 from application.dtos import EncodedCountDTO, DeleteTableDTO
 
 
 class StartEventEncodingUseCase:
-    def __init__(self, queue_service: TaskQueueService):
+    def __init__(self, queue_service: ITaskQueueService):
         self.queue_service = queue_service
 
     def execute(
@@ -20,7 +20,7 @@ class StartEventEncodingUseCase:
 
 
 class CheckEncodingStatusUseCase:
-    def __init__(self, queue_service: TaskQueueService):
+    def __init__(self, queue_service: ITaskQueueService):
         self.queue_service = queue_service
 
     def execute(self, task_id: str) -> dict:
@@ -28,26 +28,24 @@ class CheckEncodingStatusUseCase:
 
 
 class GetEncodedCountUseCase:
-    def __init__(self, repository: EventRepository):
+    def __init__(self, repository: IEventRepository):
         self.repository = repository
 
     async def execute(self, event_code: str) -> EncodedCountDTO:
-        folder_path = f"event/{event_code}"
-        exists = await self.repository.check_table_exists(folder_path)
+        exists = await self.repository.check_event_has_data(event_code)
         if not exists:
             return EncodedCountDTO(encoded_count=0, table_exists=False)
-        count = await self.repository.get_encoded_count(folder_path)
+        count = await self.repository.get_encoded_count(event_code)
         return EncodedCountDTO(encoded_count=count, table_exists=True)
 
 
 class DeleteEventTableUseCase:
-    def __init__(self, repository: EventRepository):
+    def __init__(self, repository: IEventRepository):
         self.repository = repository
 
     async def execute(self, event_code: str) -> DeleteTableDTO:
-        folder_path = f"event/{event_code}"
-        await self.repository.delete_event_table(folder_path)
+        await self.repository.delete_event_data(event_code)
         return DeleteTableDTO(
             success=True,
-            message=f"Table for event '{folder_path}' deleted successfully if it existed.",
+            message=f"Data for event '{event_code}' deleted successfully if it existed.",
         )

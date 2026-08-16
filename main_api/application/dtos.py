@@ -1,5 +1,15 @@
 from dataclasses import dataclass
 from typing import List, Optional
+from uuid import UUID
+
+
+@dataclass
+class EventEncodingDTO:
+    id: UUID
+    event_code: str
+    image_path: str
+    embedding: List[float]
+    confidence: float
 
 
 @dataclass

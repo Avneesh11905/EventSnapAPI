@@ -44,7 +44,6 @@ class Container(containers.DeclarativeContainer):
             "minio_access": settings.MINIO_ACCESS_KEY,
             "minio_secret": settings.MINIO_SECRET_KEY,
             "inference_url": settings.INFERENCE_API_URL,
-            "inference_token": settings.INFERENCE_API_TOKEN,
         }
     )
 
@@ -65,7 +64,6 @@ class Container(containers.DeclarativeContainer):
     inference_service = providers.Factory(
         HFInferenceService,
         api_url=config.inference_url,
-        api_token=config.inference_token,
     )
 
     queue_service = providers.Factory(CeleryTaskQueueService)

@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "aioboto3>=12.3.0",
+    "alembic>=1.19.1",
     "asyncpg>=0.29.0",
     "celery>=5.3.6",
     "dependency-injector>=4.41.0",

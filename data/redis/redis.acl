@@ -1,0 +1,2 @@
+user default on nopass ~* -@all +ping
+user EventSnap on >EventSnap@52912 ~* &* +@all

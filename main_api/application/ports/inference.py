@@ -1,7 +1,7 @@
 from typing import List, Dict, Protocol
 
 
-class InferenceService(Protocol):
+class IInferenceService(Protocol):
     async def get_face_encodings(
         self,
         b64_images: List[str],

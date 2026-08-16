@@ -1,9 +1,9 @@
 from typing import List
 import asyncio
-from application.ports.inference import InferenceService
-from application.ports.repository import EventRepository
-from application.ports.queue import TaskQueueService
-from application.ports.storage import StorageService
+from application.ports.inference import IInferenceService
+from application.ports.repository import IEventRepository
+from application.ports.queue import ITaskQueueService
+from application.ports.storage import IStorageService
 from application.ports.image_services import IImageAugmenter
 from application.dtos import AttendeeSortDTO, ZipCheckDTO
 from domain.exceptions import (
@@ -14,7 +14,7 @@ from domain.exceptions import (
 
 
 class EncodeAttendeeUseCase:
-    def __init__(self, inference_service: InferenceService, augmenter: IImageAugmenter):
+    def __init__(self, inference_service: IInferenceService, augmenter: IImageAugmenter):
         self.inference_service = inference_service
         self.augmenter = augmenter
 
@@ -44,7 +44,7 @@ class EncodeAttendeeUseCase:
 
 
 class SortAttendeeUseCase:
-    def __init__(self, repository: EventRepository):
+    def __init__(self, repository: IEventRepository):
         self.repository = repository
 
     async def execute(
@@ -55,16 +55,15 @@ class SortAttendeeUseCase:
                 "Must provide at least one attendee encoding."
             )
 
-        folder_path = f"event/{event_code}"
-        has_table = await self.repository.check_table_exists(folder_path)
-        if not has_table:
-            raise EventNotFoundError(f"No encoded data found for event {folder_path}.")
+        has_data = await self.repository.check_event_has_data(event_code)
+        if not has_data:
+            raise EventNotFoundError(f"No encoded data found for event {event_code}.")
 
         SIMILARITY_THRESHOLD = 0.55
         MIN_MATCHES = 2
 
         matched_paths = await self.repository.find_matches(
-            folder_path, attendee_encodings, SIMILARITY_THRESHOLD, MIN_MATCHES
+            event_code, attendee_encodings, SIMILARITY_THRESHOLD, MIN_MATCHES
         )
 
         if not matched_paths:
@@ -80,7 +79,7 @@ class SortAttendeeUseCase:
 
 
 class GenerateZipUseCase:
-    def __init__(self, queue_service: TaskQueueService):
+    def __init__(self, queue_service: ITaskQueueService):
         self.queue_service = queue_service
 
     def execute(self, event_id: str, user_id: str, image_paths: list[dict]) -> str:
@@ -88,7 +87,7 @@ class GenerateZipUseCase:
 
 
 class CheckZipExistsUseCase:
-    def __init__(self, storage_service: StorageService):
+    def __init__(self, storage_service: IStorageService):
         self.storage_service = storage_service
 
     async def execute(self, event_id: str, user_id: str) -> ZipCheckDTO:

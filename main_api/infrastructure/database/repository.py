@@ -1,123 +1,122 @@
-from application.ports.repository import EventRepository
-from infrastructure.database.models import (
-    Base,
-    create_event_table_model,
-    get_event_table_name,
-)
+from application.ports.repository import IEventRepository
+from infrastructure.database.models import EventEncodingModel
+from application.dtos import EventEncodingDTO
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
-from sqlalchemy import text, insert
+from sqlalchemy import insert, select, delete, func, literal_column, values, column
+from pgvector.sqlalchemy import Vector
 from typing import List, Set, Dict, Any
+import dataclasses
 
 
-class PostgresEventRepository(EventRepository):
+class PostgresEventRepository(IEventRepository):
     def __init__(self, engine: AsyncEngine):
         self.engine = engine
         self.SessionLocal = async_sessionmaker(
             autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
         )
 
-    async def create_event_table(self, folder_path: str) -> None:
-        create_event_table_model(folder_path)
-        async with self.engine.begin() as conn:
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-            await conn.run_sync(Base.metadata.create_all)
-
-    async def get_already_encoded_images(self, folder_path: str) -> Set[str]:
-        table_name = get_event_table_name(folder_path)
+    async def get_already_encoded_images(self, event_code: str) -> Set[str]:
         async with self.SessionLocal() as db:
-            result = await db.execute(
-                text(f'SELECT DISTINCT image_path FROM "{table_name}"')
-            )
+            stmt = select(EventEncodingModel.image_path).where(EventEncodingModel.event_code == event_code).distinct()
+            result = await db.execute(stmt)
             return {row[0] for row in result.fetchall()}
 
     async def save_encodings(
-        self, folder_path: str, encodings: List[Dict[str, Any]]
+        self, encodings: List[EventEncodingDTO]
     ) -> None:
-        EventModel = create_event_table_model(folder_path)
         async with self.SessionLocal() as db:
-            await db.execute(insert(EventModel), encodings)
+            encoding_dicts = [dataclasses.asdict(e) for e in encodings]
+            await db.execute(insert(EventEncodingModel), encoding_dicts)
             await db.commit()
 
-    async def check_table_exists(self, folder_path: str) -> bool:
-        table_name = get_event_table_name(folder_path)
-        from sqlalchemy import inspect
+    async def check_event_has_data(self, event_code: str) -> bool:
+        async with self.SessionLocal() as db:
+            stmt = select(1).select_from(EventEncodingModel).where(EventEncodingModel.event_code == event_code).limit(1)
+            result = await db.execute(stmt)
+            return result.scalar() is not None
 
-        async with self.engine.connect() as conn:
-
-            def check_table(sync_conn):
-                return inspect(sync_conn).has_table(table_name)
-
-            has_table = await conn.run_sync(check_table)
-        return has_table
-
-    async def get_encoded_count(self, folder_path: str) -> int:
-        table_name = get_event_table_name(folder_path)
-        async with self.engine.begin() as conn:
-            result = await conn.execute(
-                text(f'SELECT COUNT(DISTINCT image_path) FROM "{table_name}"')
-            )
+    async def get_encoded_count(self, event_code: str) -> int:
+        async with self.SessionLocal() as db:
+            stmt = select(func.count(EventEncodingModel.image_path.distinct())).where(EventEncodingModel.event_code == event_code)
+            result = await db.execute(stmt)
             count = result.scalar() or 0
         return count
 
-    async def delete_event_table(self, folder_path: str) -> None:
-        table_name = get_event_table_name(folder_path)
-        async with self.engine.begin() as conn:
-            await conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}" CASCADE'))
+    async def delete_event_data(self, event_code: str) -> None:
+        async with self.SessionLocal() as db:
+            stmt = delete(EventEncodingModel).where(EventEncodingModel.event_code == event_code)
+            await db.execute(stmt)
+            await db.commit()
 
     async def find_matches(
         self,
-        folder_path: str,
+        event_code: str,
         encodings: List[List[float]],
         threshold: float,
         min_matches: int,
     ) -> List[str]:
-        table_name = get_event_table_name(folder_path)
-        formatted_encodings = [f"'{str(emb)}'" for emb in encodings]
-        values_clause = ", ".join(
-            [f"({i + 1}, {emb}::vector)" for i, emb in enumerate(formatted_encodings)]
+        ref_encodings = values(
+            column('id'),
+            column('embedding', Vector(512)),
+            name="ref_encodings"
+        ).data([
+            (i + 1, emb) for i, emb in enumerate(encodings)
+        ]).cte("ref_encodings")
+
+        distance_op = EventEncodingModel.embedding.op('<=>')(ref_encodings.c.embedding)
+
+        stmt = (
+            select(
+                EventEncodingModel.image_path,
+                func.count(ref_encodings.c.id).label("match_count"),
+                func.min(distance_op).label("best_distance")
+            )
+            .join(ref_encodings, literal_column("true"))
+            .where(
+                EventEncodingModel.event_code == event_code,
+                distance_op < threshold
+            )
+            .group_by(EventEncodingModel.image_path)
+            .having(func.count(ref_encodings.c.id) >= min_matches)
+            .order_by(
+                literal_column("match_count").desc(),
+                literal_column("best_distance").asc()
+            )
         )
 
-        query_str = f"""
-            WITH ref_encodings(id, embedding) AS (
-                VALUES {values_clause}
-            )
-            SELECT p.image_path, COUNT(e.id) as match_count, MIN(p.embedding <=> e.embedding) as best_distance
-            FROM "{table_name}" p
-            CROSS JOIN ref_encodings e
-            WHERE p.embedding <=> e.embedding < :threshold
-            GROUP BY p.image_path
-            HAVING COUNT(e.id) >= :min_matches
-            ORDER BY match_count DESC, best_distance ASC
-        """
         async with self.SessionLocal() as db:
-            result = await db.execute(
-                text(query_str), {"threshold": threshold, "min_matches": min_matches}
-            )
+            result = await db.execute(stmt)
             rows = result.all()
             return [row[0] for row in rows]
 
     async def get_closest_matches_debug(
-        self, folder_path: str, encodings: List[List[float]], limit: int = 5
+        self, event_code: str, encodings: List[List[float]], limit: int = 5
     ) -> List[Dict[str, Any]]:
-        table_name = get_event_table_name(folder_path)
-        formatted_encodings = [f"'{str(emb)}'" for emb in encodings]
-        values_clause = ", ".join(
-            [f"({i + 1}, {emb}::vector)" for i, emb in enumerate(formatted_encodings)]
+        ref_encodings = values(
+            column('id'),
+            column('embedding', Vector(512)),
+            name="ref_encodings"
+        ).data([
+            (i + 1, emb) for i, emb in enumerate(encodings)
+        ]).cte("ref_encodings")
+
+        distance_op = EventEncodingModel.embedding.op('<=>')(ref_encodings.c.embedding)
+
+        stmt = (
+            select(
+                EventEncodingModel.image_path,
+                func.count(ref_encodings.c.id).label("match_count"),
+                func.min(distance_op).label("best_distance")
+            )
+            .join(ref_encodings, literal_column("true"))
+            .where(EventEncodingModel.event_code == event_code)
+            .group_by(EventEncodingModel.image_path)
+            .order_by(literal_column("best_distance").asc())
+            .limit(limit)
         )
 
-        query_str = f"""
-            WITH ref_encodings(id, embedding) AS (
-                VALUES {values_clause}
-            )
-            SELECT p.image_path, COUNT(e.id) as match_count, MIN(p.embedding <=> e.embedding) as best_distance
-            FROM "{table_name}" p
-            CROSS JOIN ref_encodings e
-            GROUP BY p.image_path
-            ORDER BY best_distance ASC
-            LIMIT :limit
-        """
         async with self.SessionLocal() as db:
-            result = await db.execute(text(query_str), {"limit": limit})
+            result = await db.execute(stmt)
             return [
                 {"image_path": row[0], "match_count": row[1], "best_distance": row[2]}
                 for row in result.all()

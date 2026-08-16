@@ -1,4 +1,4 @@
-from application.ports.storage import StorageService
+from application.ports.storage import IStorageService
 import asyncio
 from aioboto3 import Session
 from botocore.config import Config
@@ -17,7 +17,7 @@ import os
 import base64
 
 
-class MinioStorageService(StorageService):
+class MinioStorageService(IStorageService):
     def __init__(
         self, endpoint_url: str, bucket_name: str, access_key: str, secret_key: str
     ):
