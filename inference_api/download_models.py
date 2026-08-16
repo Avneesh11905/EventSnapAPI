@@ -43,7 +43,19 @@ def download_and_extract():
             print(f"📦 Extracting {config['extract_files']}...")
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 for model in config["extract_files"]:
-                    zip_ref.extract(model, dest_dir)
+                    matching_paths = [name for name in zip_ref.namelist() if name.endswith(model)]
+                    if not matching_paths:
+                        raise ValueError(f"There is no item ending with '{model}' in the archive")
+                    
+                    # Extract the file (maintains internal zip folder structure)
+                    extracted_path = zip_ref.extract(matching_paths[0], dest_dir)
+                    
+                    # Move it to the root of dest_dir if it was nested
+                    final_path = os.path.join(dest_dir, model)
+                    if os.path.abspath(extracted_path) != os.path.abspath(final_path):
+                        if os.path.exists(final_path):
+                            os.remove(final_path)
+                        shutil.move(extracted_path, final_path)
                 
             print(f"🗑️ Cleaning up {config['zip_name']}...")
             os.remove(zip_path)
