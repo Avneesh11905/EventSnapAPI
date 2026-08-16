@@ -1,13 +1,11 @@
 from celery import Celery
 from config import settings
 
-sync_db_backend = settings.DATABASE_URL.replace("postgresql+asyncpg://", "db+postgresql://")
-
 celery_app = Celery(
     "eventsnap_tasks",
     broker=settings.RABBITMQ_URL,
-    backend=sync_db_backend,
-    include=['infrastructure.queue.celery_workers']
+    backend=settings.REDIS_URL,
+    include=["infrastructure.queue.celery_workers"],
 )
 
 celery_app.conf.update(

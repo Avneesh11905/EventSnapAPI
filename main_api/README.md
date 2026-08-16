@@ -3,9 +3,20 @@
 The `main_api` is the high-performance Eventsnap orchestrator built on FastAPI. It handles API authentication, HTTP request routing, database querying (with `pgvector`), and delegating heavy facial encoding workloads to asynchronous Celery workers.
 
 ## Core Responsibilities
-*   **Routing & Auth**: Secures the API using `X-API-Key` middleware.
-*   **Async Orchestration**: Rapidly accepts encoding requests and pushes them to RabbitMQ.
+*   **Async Orchestration**: Rapidly accepts encoding requests and pushes them to RabbitMQ (with Redis as a result backend).
 *   **Similarity Search**: Uses PostgreSQL `pgvector` for lightning-fast cosine similarity matching.
+*   **Network Optimization**: Automatically compresses large JSON responses using `GZipMiddleware` to minimize bandwidth and accelerate client downloads.
+
+---
+
+## 🏗 Directory Structure (Hexagonal Architecture)
+
+This API strictly follows the **Ports and Adapters (Hexagonal) Architecture** using Dependency Injection (`di_container.py`).
+
+*   **`domain/`**: Enterprise logic, entities, and domain exceptions. Completely independent of any external frameworks.
+*   **`application/`**: Business use cases (e.g., `events.py`, `attendees.py`, `background_tasks.py`), DTOs, and Ports (interfaces).
+*   **`infrastructure/`**: External adapters (Celery, PostgreSQL/pgvector, MinIO, HuggingFace Inference API, Image Augmentation).
+*   **`presentation/`**: FastAPI routers, schemas, and exception handlers.
 
 ---
 
@@ -13,7 +24,6 @@ The `main_api` is the high-performance Eventsnap orchestrator built on FastAPI. 
 
 All endpoints require the following Header:
 ```http
-X-API-Key: <YOUR_SECRET_API_KEY>
 Content-Type: application/json
 ```
 
@@ -23,11 +33,10 @@ Triggers the background Celery worker to download a folder from MinIO, process e
 **Example `curl` Request:**
 ```bash
 curl -X 'POST' \
-  'http://localhost:8000/api/encode-event/' \
-  -H 'X-API-Key: <YOUR_SECRET_API_KEY>' \
+  'http://localhost:8000/api/events/encode-event/' \
   -H 'Content-Type: application/json' \
   -d '{
-  "minio_folder_path": "events/summer_fest_2026",
+  "event_code": "DCAYTI",
   "max_faces": 0,
   "det_conf": 0.5,
   "nms_thresh": 0.4
@@ -38,14 +47,13 @@ curl -X 'POST' \
 ```javascript
 import axios from 'axios';
 
-const response = await axios.post('http://localhost:8000/api/encode-event/', {
-  minio_folder_path: 'events/summer_fest_2026',
+const response = await axios.post('http://localhost:8000/api/events/encode-event/', {
+  event_code: 'DCAYTI',
   max_faces: 0,
   det_conf: 0.5,
   nms_thresh: 0.4
 }, {
   headers: {
-    'X-API-Key': '<YOUR_SECRET_API_KEY>',
     'Content-Type': 'application/json'
   }
 });
@@ -54,8 +62,9 @@ console.log(response.data);
 **Response (202 Accepted):**
 ```json
 {
-  "message": "Encoding event started in background.",
-  "task_id": "74e9fe48-3dda-4b76-8d87-052ffbfa4cec"
+  "message": "Event encoding task has been enqueued to RabbitMQ Worker.",
+  "task_id": "74e9fe48-3dda-4b76-8d87-052ffbfa4cec",
+  "event_code": "DCAYTI"
 }
 ```
 
@@ -65,8 +74,7 @@ Retrieves the real-time progress of a running `encode-event` task from the Celer
 **Example `curl` Request:**
 ```bash
 curl -X 'GET' \
-  'http://localhost:8000/api/encode-status/{task_id}' \
-  -H 'X-API-Key: <YOUR_SECRET_API_KEY>'
+  'http://localhost:8000/api/events/encode-status/{task_id}'
 ```
 
 **Example `axios` (Next.js) Request:**
@@ -74,11 +82,7 @@ curl -X 'GET' \
 import axios from 'axios';
 
 const taskId = '74e9fe48-3dda-4b76...';
-const response = await axios.get(`http://localhost:8000/api/encode-status/${taskId}`, {
-  headers: {
-    'X-API-Key': '<YOUR_SECRET_API_KEY>'
-  }
-});
+const response = await axios.get(`http://localhost:8000/api/events/encode-status/${taskId}`);
 console.log(response.data);
 ```
 
@@ -87,12 +91,9 @@ console.log(response.data);
 {
   "task_id": "74e9fe48-3dda-4b76...",
   "status": "PROCESSING",
-  "meta_info": {
-    "progress": 45,
-    "processed": 450,
-    "total": 1000,
-    "status": "Processed 450/1000 images"
-  }
+  "progress": "45%",
+  "images_processed": 450,
+  "total_images": 1000
 }
 ```
 
@@ -101,9 +102,7 @@ console.log(response.data);
 {
   "task_id": "74e9fe48-3dda-4b76...",
   "status": "SUCCESS",
-  "meta_info": {
-    "result": "Success"
-  }
+  "message": "Success"
 }
 ```
 
@@ -113,8 +112,7 @@ Converts 3 raw attendee profile photos (front, left, right) into 9 augmented fac
 **Example `curl` Request:**
 ```bash
 curl -X 'POST' \
-  'http://localhost:8000/api/encode-attendee/' \
-  -H 'X-API-Key: <YOUR_SECRET_API_KEY>' \
+  'http://localhost:8000/api/attendees/encode-attendee/' \
   -H 'Content-Type: application/json' \
   -d '{
   "attendee_images_base64": [
@@ -129,7 +127,7 @@ curl -X 'POST' \
 ```javascript
 import axios from 'axios';
 
-const response = await axios.post('http://localhost:8000/api/encode-attendee/', {
+const response = await axios.post('http://localhost:8000/api/attendees/encode-attendee/', {
   attendee_images_base64: [
     'base64_string_1...',
     'base64_string_2...',
@@ -137,7 +135,6 @@ const response = await axios.post('http://localhost:8000/api/encode-attendee/', 
   ]
 }, {
   headers: {
-    'X-API-Key': '<YOUR_SECRET_API_KEY>',
     'Content-Type': 'application/json'
   }
 });
@@ -162,11 +159,10 @@ The core feature: Finds an attendee in an encoded event. It accepts the 9 precis
 **Example `curl` Request:**
 ```bash
 curl -X 'POST' \
-  'http://localhost:8000/api/sort-attendee/' \
-  -H 'X-API-Key: <YOUR_SECRET_API_KEY>' \
+  'http://localhost:8000/api/attendees/sort-attendee/' \
   -H 'Content-Type: application/json' \
   -d '{
-  "minio_folder_path": "events/summer_fest_2026",
+  "event_code": "DCAYTI",
   "attendee_encodings": [
     [0.012, -0.045, ...],
     [0.018, -0.052, ...]
@@ -181,12 +177,11 @@ import axios from 'axios';
 // Encodings from the previous '/encode-attendee/' step
 const encodingsArray = [[...], [...], ...]; 
 
-const response = await axios.post('http://localhost:8000/api/sort-attendee/', {
-  minio_folder_path: 'events/summer_fest_2026',
+const response = await axios.post('http://localhost:8000/api/attendees/sort-attendee/', {
+  event_code: 'DCAYTI',
   attendee_encodings: encodingsArray
 }, {
   headers: {
-    'X-API-Key': '<YOUR_SECRET_API_KEY>',
     'Content-Type': 'application/json'
   }
 });
@@ -196,11 +191,11 @@ console.log(response.data);
 **Response (200 OK):**
 ```json
 {
-  "event": "events/summer_fest_2026",
+  "event_code": "DCAYTI",
   "matches_found": 14,
   "photos": [
-    "events/summer_fest_2026/DSC_001.jpg",
-    "events/summer_fest_2026/DSC_045.jpg"
+    "events/DCAYTI/DSC_001.jpg",
+    "events/DCAYTI/DSC_045.jpg"
   ]
 }
 ```

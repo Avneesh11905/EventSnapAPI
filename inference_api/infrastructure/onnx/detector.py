@@ -8,43 +8,15 @@ No torch/ultralytics dependency needed.
 Returns bounding boxes and 5-point facial landmarks for each detected face.
 """
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
 import numpy as np
 import onnxruntime as ort
 
+from domain.entities import DetectedFace
+from .utils import get_providers
 
-@dataclass
-class DetectedFace:
-    """A single detected face with its bounding box and landmarks."""
-    bbox: np.ndarray          # [x1, y1, x2, y2] in pixel coords
-    landmarks: np.ndarray     # shape (5, 2) — left_eye, right_eye, nose, left_mouth, right_mouth
-    confidence: float
-
-def _get_providers(device: str) -> list:
-    """Get ONNX Runtime execution providers based on device."""
-    if device == "cuda":
-        available = ort.get_available_providers()
-        providers = []
-        # if "TensorrtExecutionProvider" in available:
-        #     providers.append(("TensorrtExecutionProvider", {
-        #         "trt_fp16_enable": True,
-        #         "trt_engine_cache_enable": True,
-        #         "trt_engine_cache_path": "./trt_cache",
-        #     }))
-        if "CUDAExecutionProvider" in available:
-            providers.append(("CUDAExecutionProvider", {
-                "arena_extend_strategy": "kSameAsRequested",
-                "cudnn_conv_algo_search": "DEFAULT",
-                "do_copy_in_default_stream": True,
-            }))
-        if providers:
-            providers.append("CPUExecutionProvider")
-            return providers
-        print("[warning] CUDA requested but no GPU providers available, falling back to CPU")
-    return ["CPUExecutionProvider"]
 
 class FaceDetector:
     """
@@ -76,13 +48,17 @@ class FaceDetector:
                 f"Run download_models.py first."
             )
 
-        providers = _get_providers(device)
+        providers = get_providers(device)
         sess_opts = ort.SessionOptions()
-        sess_opts.add_session_config_entry("session.memory.enable_memory_arena_shrinkage", "gpu:0")
+        sess_opts.add_session_config_entry(
+            "session.memory.enable_memory_arena_shrinkage", "gpu:0"
+        )
         if num_threads > 0:
             sess_opts.intra_op_num_threads = num_threads
             sess_opts.inter_op_num_threads = 1
-        self.session = ort.InferenceSession(model_path, sess_options=sess_opts, providers=providers)
+        self.session = ort.InferenceSession(
+            model_path, sess_options=sess_opts, providers=providers
+        )
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [o.name for o in self.session.get_outputs()]
         self.confidence = confidence
@@ -91,7 +67,7 @@ class FaceDetector:
 
         # Cache anchor centers per (height, width, stride)
         self._center_cache: dict[tuple, np.ndarray] = {}
-        
+
         # Check if model supports batching
         input_shape = self.session.get_inputs()[0].shape
         # Typically [batch, channel, height, width]
@@ -103,12 +79,11 @@ class FaceDetector:
             if isinstance(dim0, str) or dim0 is None:
                 self.batch_supported = True
             elif isinstance(dim0, int) and dim0 > 1:
-                 # Fixed batch size > 1? Rare but possible.
-                 pass
-        
-        if not self.batch_supported:
-            print(f"[FaceDetector] Model has fixed batch size {input_shape[0]}. Batch inference will be sequential.")
+                # Fixed batch size > 1? Rare but possible.
+                pass
 
+        if not self.batch_supported:
+            pass
 
     @staticmethod
     def _distance2bbox(points: np.ndarray, distance: np.ndarray) -> np.ndarray:
@@ -122,7 +97,7 @@ class FaceDetector:
     @staticmethod
     def _distance2kps(points: np.ndarray, distance: np.ndarray) -> np.ndarray:
         """Decode distance predictions to keypoints."""
-        preds = []
+        preds: list[np.ndarray] = []
         for i in range(0, distance.shape[1], 2):
             px = points[:, i % 2] + distance[:, i]
             py = points[:, i % 2 + 1] + distance[:, i + 1]
@@ -130,7 +105,7 @@ class FaceDetector:
             preds.append(py)
         return np.stack(preds, axis=-1)
 
-    def _nms(self, dets: np.ndarray) -> list[int]:
+    def _nms(self, dets: np.ndarray, nms_thresh: float) -> list[int]:
         """Non-maximum suppression on (N, 5) array of [x1, y1, x2, y2, score]."""
         x1 = dets[:, 0]
         y1 = dets[:, 1]
@@ -158,7 +133,7 @@ class FaceDetector:
             inter = w * h
             ovr = inter / (areas[i] + areas[order[1:]] - inter)
 
-            inds = np.where(ovr <= self.nms_threshold)[0]
+            inds = np.where(ovr <= nms_thresh)[0]
             order = order[inds + 1]
 
         return keep
@@ -191,8 +166,7 @@ class FaceDetector:
 
         # Use cv2.dnn.blobFromImage for correct preprocessing (matches official impl)
         blob = cv2.dnn.blobFromImage(
-            det_img, 1.0 / 128.0, (input_w, input_h),
-            (127.5, 127.5, 127.5), swapRB=True
+            det_img, 1.0 / 128.0, (input_w, input_h), (127.5, 127.5, 127.5), swapRB=True
         )
 
         return blob, det_scale
@@ -203,9 +177,9 @@ class FaceDetector:
         if key in self._center_cache:
             return self._center_cache[key]
 
-        anchor_centers = np.stack(
-            np.mgrid[:height, :width][::-1], axis=-1
-        ).astype(np.float32)
+        anchor_centers = np.stack(tuple(np.mgrid[:height, :width][::-1]), axis=-1).astype(
+            np.float32
+        )
         anchor_centers = (anchor_centers * stride).reshape(-1, 2)
 
         if self._NUM_ANCHORS > 1:
@@ -218,7 +192,13 @@ class FaceDetector:
 
         return anchor_centers
 
-    def detect(self, image: np.ndarray, max_faces: int = 0) -> list[DetectedFace]:
+    def detect(
+        self,
+        image: np.ndarray,
+        max_faces: int = 0,
+        confidence: float | None = None,
+        nms_threshold: float | None = None,
+    ) -> list[DetectedFace]:
         """
         Detect faces in an image.
 
@@ -229,6 +209,9 @@ class FaceDetector:
         Returns:
             List of DetectedFace sorted by confidence (highest first).
         """
+        conf = confidence if confidence is not None else self.confidence
+        nms_thresh = nms_threshold if nms_threshold is not None else self.nms_threshold
+
         blob, det_scale = self._preprocess(image)
 
         # Run inference
@@ -254,7 +237,7 @@ class FaceDetector:
             anchor_centers = self._get_anchor_centers(height, width, stride)
 
             # Filter by confidence
-            pos_inds = np.where(scores >= self.confidence)[0]
+            pos_inds = np.where(scores >= conf)[0]
 
             # Decode all, then filter
             bboxes = self._distance2bbox(anchor_centers, bbox_preds)
@@ -282,7 +265,7 @@ class FaceDetector:
         # NMS
         pre_det = np.hstack((bboxes, scores)).astype(np.float32)
         pre_det = pre_det[order, :]
-        keep = self._nms(pre_det)
+        keep = self._nms(pre_det, nms_thresh)
         det = pre_det[keep, :]
 
         kpss = kpss[order, :, :]
@@ -305,7 +288,13 @@ class FaceDetector:
 
         return faces
 
-    def detect_batch(self, images: list[np.ndarray], max_faces: int = 0) -> list[list[DetectedFace]]:
+    def detect_batch(
+        self,
+        images: list[np.ndarray],
+        max_faces: int = 0,
+        confidence: float | None = None,
+        nms_threshold: float | None = None,
+    ) -> list[list[DetectedFace]]:
         """
         Detect faces in a batch of images.
         """
@@ -315,8 +304,11 @@ class FaceDetector:
         if not self.batch_supported:
             results = []
             for img in images:
-                results.append(self.detect(img, max_faces))
+                results.append(self.detect(img, max_faces, confidence, nms_threshold))
             return results
+
+        conf = confidence if confidence is not None else self.confidence
+        nms_thresh = nms_threshold if nms_threshold is not None else self.nms_threshold
 
         batch_size = len(images)
         input_w, input_h = self.input_size
@@ -348,92 +340,91 @@ class FaceDetector:
             canvas[:new_height, :new_width, :] = resized
 
             # 2. BGR -> RGB & Normalize
-            canvas = canvas.astype(np.float32)
-            canvas = (canvas - 127.5) / 128.0
+            canvas_float = canvas.astype(np.float32)
+            canvas_float = (canvas_float - 127.5) / 128.0
 
             # 3. BGR -> RGB
-            canvas = canvas[..., ::-1]
+            canvas_float = canvas_float[..., ::-1]
 
             # 4. HWC -> CHW
-            canvas = np.transpose(canvas, (2, 0, 1))
-
-            batch_blob[i] = canvas
+            canvas_float = np.transpose(canvas_float, (2, 0, 1))
+            batch_blob[i] = canvas_float
 
         # Run inference
         net_outs = self.session.run(self.output_names, {self.input_name: batch_blob})
 
         # Process batch results
-        batch_results = []
+        batch_results: list[list[DetectedFace]] = []
         fmc = self._FMC
 
         for b in range(batch_size):
             scores_list = []
             bboxes_list = []
             kpss_list = []
-            
+
             for idx, stride in enumerate(self._FEAT_STRIDE_FPN):
                 # net_outs[idx] is (B, A*C, H, W) or (B, C, H, W)?
                 # SCRFD dynamic batch output usually conserves dimensions.
                 # (B, NumAnchors*1, H, W) for scores
-                
+
                 # We need to slice the batch
-                score_blob = net_outs[idx][b]      # (C, H, W)
-                bbox_blob = net_outs[idx + fmc][b] # (C*4, H, W)
-                kps_blob = net_outs[idx + fmc * 2][b] # (C*10, H, W)
-                
+                score_blob = net_outs[idx][b]  # (C, H, W)
+                bbox_blob = net_outs[idx + fmc][b]  # (C*4, H, W)
+                kps_blob = net_outs[idx + fmc * 2][b]  # (C*10, H, W)
+
                 c, h_map, w_map = score_blob.shape
-                
+
                 # Transpose to (H, W, C) & Reshape
                 # Note: SCRFD C=NumAnchors * 1
-                
+
                 # Flatten
                 score_blob = score_blob.transpose(1, 2, 0).reshape(-1, 1)
                 bbox_blob = bbox_blob.transpose(1, 2, 0).reshape(-1, 4)
                 kps_blob = kps_blob.transpose(1, 2, 0).reshape(-1, 10)
-                
+
                 anchor_centers = self._get_anchor_centers(h_map, w_map, stride)
-                
+
                 # Filter
-                pos_inds = np.where(score_blob >= self.confidence)[0]
-                
+                pos_inds = np.where(score_blob >= conf)[0]
+
                 # Decode
                 bbox_pred = bbox_blob[pos_inds] * stride
                 kps_pred = kps_blob[pos_inds] * stride
-                
+
                 anchors = anchor_centers[pos_inds]
-                
+
                 if len(anchors) > 0:
-                     bboxes = self._distance2bbox(anchors, bbox_pred)
-                     kpss = self._distance2kps(anchors, kps_pred)
-                     
-                     scores_list.append(score_blob[pos_inds])
-                     bboxes_list.append(bboxes)
-                     kpss_list.append(kpss.reshape(-1, 5, 2))
-                
+                    bboxes = self._distance2bbox(anchors, bbox_pred)
+                    kpss = self._distance2kps(anchors, kps_pred)
+
+                    scores_list.append(score_blob[pos_inds])
+                    bboxes_list.append(bboxes)
+                    kpss_list.append(kpss.reshape(-1, 5, 2))
+
             if not scores_list:
                 batch_results.append([])
                 continue
-                
+
             scores = np.vstack(scores_list)
             scores_ravel = scores.ravel()
             order = scores_ravel.argsort()[::-1]
 
             bboxes = np.vstack(bboxes_list) / det_scales[b]
             kpss = np.vstack(kpss_list) / det_scales[b]
-            
+
             # NMS
             pre_det = np.hstack((bboxes, scores)).astype(np.float32)
             pre_det = pre_det[order, :]
-            keep = self._nms(pre_det)
+            keep = self._nms(pre_det, nms_thresh)
             det = pre_det[keep, :]
-            
+
             kpss = kpss[order, :, :]
             kpss = kpss[keep, :, :]
-            
+
             if max_faces > 0 and det.shape[0] > max_faces:
                 det = det[:max_faces]
                 kpss = kpss[:max_faces]
-                
+
             faces = []
             for i in range(det.shape[0]):
                 face = DetectedFace(
@@ -443,5 +434,5 @@ class FaceDetector:
                 )
                 faces.append(face)
             batch_results.append(faces)
-            
+
         return batch_results

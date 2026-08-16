@@ -1,23 +1,54 @@
-FROM python:3.14-slim
+# Stage 1: Builder
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies for building PostgreSQL drivers if needed
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+
+# Install system dependencies for building PostgreSQL drivers
 RUN apt-get update && \
     apt-get install -y gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-# Copy dependencies first to leverage Docker cache
-RUN pip install --default-timeout=1000 --retries=10 --no-cache-dir -r requirements.txt
+# Install dependencies using uv.lock and pyproject.toml
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
 
-# Copy the rest of the application
+# Copy the rest of the application and sync project
 COPY . .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
+
+# Stage 2: Final Runtime Image
+FROM python:3.14-slim-trixie AS final
+
+# Install runtime PostgreSQL dependencies, utilities, and OpenCV libraries
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq5 curl procps libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --system appgroup \
+    && useradd --system --gid appgroup --create-home appuser
+
+WORKDIR /app
+
+# Copy virtual environment from builder
+COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
+
+# Copy local source code
+COPY --chown=appuser:appgroup . .
+
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Expose FastAPI port
+USER appuser
+
 EXPOSE 8000
 
-# Default command (can be overridden in docker-compose)
-CMD ["gunicorn", "presentation.api.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "presentation.api.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--forwarded-allow-ips", "*"]
