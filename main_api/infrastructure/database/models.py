@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, Float
+from sqlalchemy import Column, String, Float, Index
 from sqlalchemy.dialects.postgresql import UUID
 from pgvector.sqlalchemy import Vector
 import uuid
@@ -18,3 +18,12 @@ class EventEncodingModel(Base):
     embedding = Column(Vector(512))
     confidence = Column(Float)
 
+    __table_args__ = (
+        Index(
+            "ix_event_encodings_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )

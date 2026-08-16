@@ -177,9 +177,9 @@ class FaceDetector:
         if key in self._center_cache:
             return self._center_cache[key]
 
-        anchor_centers = np.stack(tuple(np.mgrid[:height, :width][::-1]), axis=-1).astype(
-            np.float32
-        )
+        anchor_centers = np.stack(
+            tuple(np.mgrid[:height, :width][::-1]), axis=-1
+        ).astype(np.float32)
         anchor_centers = (anchor_centers * stride).reshape(-1, 2)
 
         if self._NUM_ANCHORS > 1:

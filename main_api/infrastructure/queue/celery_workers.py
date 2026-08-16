@@ -31,6 +31,7 @@ def encode_event_task(
         return dataclasses.asdict(result)
     return result
 
+
 @shared_task(bind=True, name="encode_image_batch_task", acks_late=True)
 def encode_image_batch_task(
     self,

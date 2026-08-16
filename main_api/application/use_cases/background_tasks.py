@@ -1,12 +1,16 @@
 from application.ports.storage import IStorageService
 from application.ports.inference import IInferenceService
-from application.ports.repository import IEventRepository
+from application.ports.uow import IUnitOfWork
 from application.ports.queue import ITaskQueueService
 import asyncio
 from typing import Callable, Any
 import uuid
 from domain.exceptions import ZipGenerationError, StorageDownloadError, InferenceError
-from application.dtos import BackgroundEncodingResult, BackgroundZipResult, EventEncodingDTO
+from application.dtos import (
+    BackgroundEncodingResult,
+    BackgroundZipResult,
+    EventEncodingDTO,
+)
 
 
 class EncodeImageBatchUseCase:
@@ -14,11 +18,11 @@ class EncodeImageBatchUseCase:
         self,
         storage_service: IStorageService,
         inference_service: IInferenceService,
-        repository: IEventRepository,
+        uow: IUnitOfWork,
     ):
         self.storage_service = storage_service
         self.inference_service = inference_service
-        self.repository = repository
+        self.uow = uow
 
     async def execute(
         self,
@@ -31,8 +35,7 @@ class EncodeImageBatchUseCase:
 
         batch_thumb_keys = [k.replace("/raw/", "/thumbs/", 1) for k in keys]
         download_tasks = [
-            self.storage_service.download_image_b64(key)
-            for key in batch_thumb_keys
+            self.storage_service.download_image_b64(key) for key in batch_thumb_keys
         ]
         b64_images = await asyncio.gather(*download_tasks, return_exceptions=True)
 
@@ -40,7 +43,9 @@ class EncodeImageBatchUseCase:
         valid_b64: list[str] = []
         for key, b64 in zip(keys, b64_images):
             if isinstance(b64, Exception):
-                raise StorageDownloadError(f"Failed to download {key} after retries: {b64}")
+                raise StorageDownloadError(
+                    f"Failed to download {key} after retries: {b64}"
+                )
             elif b64 is not None:
                 valid_keys.append(key)
                 valid_b64.append(str(b64))
@@ -70,20 +75,22 @@ class EncodeImageBatchUseCase:
                         )
 
             if insert_data:
-                await self.repository.save_encodings(insert_data)
+                async with self.uow as uow:
+                    await uow.event_repo.save_encodings(insert_data)
+                    await uow.commit()
         except Exception as e:
-            raise InferenceError(f"Failed to infer batch: {e}")
+            raise InferenceError(f"Failed to infer batch: {e}") from e
 
 
 class ProcessEventEncodingUseCase:
     def __init__(
         self,
         storage_service: IStorageService,
-        repository: IEventRepository,
+        uow: IUnitOfWork,
         queue_service: ITaskQueueService,
     ):
         self.storage_service = storage_service
-        self.repository = repository
+        self.uow = uow
         self.queue_service = queue_service
 
     async def execute(
@@ -109,7 +116,11 @@ class ProcessEventEncodingUseCase:
             )
 
         all_raw_keys = [k.replace("/thumbs/", "/raw/", 1) for k in all_thumb_keys]
-        already_encoded = await self.repository.get_already_encoded_images(event_code)
+
+        async with self.uow as uow:
+            already_encoded = await uow.event_repo.get_already_encoded_images(
+                event_code
+            )
 
         new_raw_keys = [k for k in all_raw_keys if k not in already_encoded]
         skipped = len(all_thumb_keys) - len(new_raw_keys)
@@ -151,7 +162,7 @@ class ProcessEventEncodingUseCase:
                 "status_msg": f"Dispatched {total_images} new images to processing queue.",
             },
         )
-        
+
         return BackgroundEncodingResult(
             result=f"Dispatched {total_images} images to cluster.",
             total=len(all_thumb_keys),
