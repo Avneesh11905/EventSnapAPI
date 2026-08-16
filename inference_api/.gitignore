@@ -1,0 +1,7 @@
+.mypy_cache
+.ruff_cache
+.venv
+**/__pycache__
+.env*
+inference_api/models/*.onnx
+*.onnx

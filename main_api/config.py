@@ -1,21 +1,30 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
-class Settings(BaseSettings):
-    API_KEY: str 
 
+class Settings(BaseSettings):
     DATABASE_URL: str
-    
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def set_asyncpg(cls, v: str) -> str:
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     RABBITMQ_URL: str
-    
-    MINIO_ENDPOINT: str 
-    MINIO_ACCESS_KEY: str 
+    REDIS_URL: str = "redis://redis:6379/0"
+
+    MINIO_ENDPOINT: str
+    MINIO_ACCESS_KEY: str
     MINIO_SECRET_KEY: str
-    MINIO_BUCKET_NAME: str 
-    
-    INFERENCE_API_URL: str 
+    MINIO_BUCKET_NAME: str
+
+    INFERENCE_API_URL: str
     INFERENCE_API_TOKEN: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
 
 settings = Settings()

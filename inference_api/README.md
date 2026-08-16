@@ -10,6 +10,17 @@ It is designed to be horizontally scaled or deployed as a Serverless Endpoint on
 
 ---
 
+## 🏗 Directory Structure (Hexagonal Architecture)
+
+This API strictly follows the **Ports and Adapters (Hexagonal) Architecture** using Dependency Injection (`di_container.py`).
+
+*   **`domain/`**: Enterprise logic, bounding box entities, and domain exceptions.
+*   **`application/`**: Inference Use Case logic and interface Ports.
+*   **`infrastructure/`**: Concrete ONNX mathematical implementations and Base64 image decoding adapters.
+*   **`presentation/`**: FastAPI routers and standardized payload schemas.
+
+---
+
 ## REST Endpoints
 
 ### 1. Process Batch Images
@@ -25,9 +36,11 @@ curl -X 'POST' \
     "base64_encoded_photo_1...",
     "base64_encoded_photo_2..."
   ],
-  "max_faces": 0,
-  "det_conf": 0.5,
-  "nms_thresh": 0.4
+  "parameters": {
+    "max_faces": 0,
+    "det_conf": 0.5,
+    "nms_thresh": 0.4
+  }
 }'
 ```
 
@@ -40,9 +53,11 @@ const response = await axios.post('http://localhost:5000/', {
     'base64_encoded_photo_1...',
     'base64_encoded_photo_2...'
   ],
-  max_faces: 0,
-  det_conf: 0.5,
-  nms_thresh: 0.4
+  parameters: {
+    max_faces: 0,
+    det_conf: 0.5,
+    nms_thresh: 0.4
+  }
 }, {
   headers: {
     'Content-Type': 'application/json'
@@ -74,5 +89,5 @@ Because ONNX Runtime GPU requires specific NVIDIA compilation, the container mus
 
 To run locally (if you have an NVIDIA GPU):
 ```bash
-docker run --gpus all -p 5000:5000 avneesh11905/inference_api:latest
+docker run --gpus all -p 5000:5000 inference_api:latest
 ```

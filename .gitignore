@@ -1,0 +1,6 @@
+images/
+data/
+tests/
+datasets/
+/**/__pycache__
+/**/.env

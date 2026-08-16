@@ -1,92 +1,98 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 from dependency_injector.wiring import inject, Provide
 from infrastructure.di_container import Container
 from application.use_cases.events import (
-    StartEventEncodingUseCase, 
-    CheckEncodingStatusUseCase, 
-    GetEncodedCountUseCase, 
-    DeleteEventTableUseCase
+    StartEventEncodingUseCase,
+    CheckEncodingStatusUseCase,
+    GetEncodedCountUseCase,
+    DeleteEventTableUseCase,
+)
+from presentation.api.schemas import (
+    EncodeEventRequest,
+    EnqueueTaskResponse,
+    EncodingStatusResponse,
+    EncodedCountResponse,
+    DeleteTableResponse,
 )
 import asyncio
+import dataclasses
+from typing import Any
 
 router = APIRouter()
 
-class EncodeEventRequest(BaseModel):
-    minio_folder_path: str
-    max_faces: int = 0
-    detection_conf: float = 0.5
-    nms_threshold: float = 0.4
 
-@router.post("/encode-event/")
+@router.post("/encode-event/", response_model=EnqueueTaskResponse)
 @inject
 async def start_event_encoding(
     request: EncodeEventRequest,
-    use_case: StartEventEncodingUseCase = Depends(Provide[Container.start_event_encoding_use_case])
+    use_case: StartEventEncodingUseCase = Depends(
+        Provide[Container.start_event_encoding_use_case]
+    ),
 ):
     task_id = use_case.execute(
-        request.minio_folder_path,
+        request.event_code,
         request.max_faces,
         request.detection_conf,
-        request.nms_threshold
+        request.nms_threshold,
     )
-    
-    return {
-        "message": "Event encoding task has been enqueued to RabbitMQ Worker.",
-        "task_id": task_id,
-        "folder": request.minio_folder_path
-    }
 
-@router.get("/encode-status/{task_id}")
+    return EnqueueTaskResponse(
+        message="Event encoding task has been enqueued to RabbitMQ Worker.",
+        task_id=task_id,
+        event_code=request.event_code,
+    )
+
+
+@router.get("/encode-status/{task_id}", response_model=EncodingStatusResponse)
 @inject
 async def get_encoding_status(
     task_id: str,
-    use_case: CheckEncodingStatusUseCase = Depends(Provide[Container.check_encoding_status_use_case])
+    use_case: CheckEncodingStatusUseCase = Depends(
+        Provide[Container.check_encoding_status_use_case]
+    ),
 ):
-    try:
-        response = await asyncio.to_thread(use_case.execute, task_id)
-        
-        state = response.get("status")
-        formatted = {
-            "task_id": task_id,
-            "status": state
-        }
-        
-        if state == 'PROCESSING' and 'progress' in response:
-            formatted.update({
+    response = await asyncio.to_thread(use_case.execute, task_id)
+
+    state = response.get("status")
+    formatted: dict[str, Any] = {"task_id": task_id, "status": state}
+
+    if state == "PROCESSING" and "progress" in response:
+        formatted.update(
+            {
                 "progress": f"{response.get('progress', 0)}%",
-                "images_processed": response.get('processed', 0),
-                "total_images": response.get('total', 0),
-            })
-        elif state == 'SUCCESS' and 'result' in response:
-             formatted["message"] = response["result"]
+                "images_processed": response.get("processed", 0),
+                "total_images": response.get("total", 0),
+            }
+        )
+    elif state == "SUCCESS" and "result" in response:
+        res_data = response["result"]
+        if isinstance(res_data, dict):
+            formatted["message"] = res_data.get("result", str(res_data))
+        else:
+            formatted["message"] = str(res_data)
 
-        return formatted
-    except Exception as e:
-         return {"task_id": task_id, "status": "ERROR", "message": f"Failed to connect to backend: {str(e)}"}
+    return EncodingStatusResponse(**formatted)
 
-@router.get("/encode-count/{folder}")
+
+@router.get("/encode-count/{event_code}", response_model=EncodedCountResponse)
 @inject
 async def get_encoded_image_count(
-    folder: str,
-    use_case: GetEncodedCountUseCase = Depends(Provide[Container.get_encoded_count_use_case])
+    event_code: str,
+    use_case: GetEncodedCountUseCase = Depends(
+        Provide[Container.get_encoded_count_use_case]
+    ),
 ):
-    try:
-        return await use_case.execute(folder)
-    except Exception as e:
-        return {"encoded_count": 0, "error": str(e)}
-    
-@router.delete("/delete-event-table/{folder}")
+    dto = await use_case.execute(event_code)
+    return EncodedCountResponse(**dataclasses.asdict(dto))
+
+
+@router.delete("/delete-event-table/{event_code}", response_model=DeleteTableResponse)
 @inject
 async def delete_event_table(
-    folder: str,
-    use_case: DeleteEventTableUseCase = Depends(Provide[Container.delete_event_table_use_case])
+    event_code: str,
+    use_case: DeleteEventTableUseCase = Depends(
+        Provide[Container.delete_event_table_use_case]
+    ),
 ):
-    try:
-        return await use_case.execute(folder)
-    except Exception as e:
-        return {
-            "success": False, 
-            "error": str(e),
-            "table_name": folder
-        }
+    dto = await use_case.execute(event_code)
+    return DeleteTableResponse(**dataclasses.asdict(dto))

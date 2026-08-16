@@ -1,0 +1,136 @@
+name: eventsnap
+
+x-env-file: &env-file
+  - .env
+
+services:
+  # 1. PostgreSQL Database with pgvector pre-installed
+  es-postgres:
+    image: pgvector/pgvector:pg18-trixie
+    container_name: eventsnap_db
+    env_file: *env-file
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+      - Observer-Network
+
+  #2. Minio Object Storage
+  es-minio:
+    image: minio/minio:latest
+    container_name: eventsnap_minio
+    command: server /data --console-address ":9001"
+    env_file: *env-file
+    volumes:
+      - ./data/minio_data:/data
+    ports:
+      - "9001:9001" 
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://es-minio:9000/minio/health/live"]
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+  es-redis:
+    image: redis:8.8.0
+    container_name: eventsnap_redis
+    env_file: *env-file
+    volumes:
+      - ./data/redis/data:/data
+      - ./data/redis/redis.acl:/mnt/users.acl:ro
+    command: [ "redis-server", "--port", "${REDIS_PORT:-6379}", "--aclfile", "/mnt/users.acl" ]
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli -p ${REDIS_PORT:-6379} ping | grep -E '(PONG|NOAUTH)'" ]
+      start_period: 10s
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: 
+      - Eventsnap-Network
+      - Observer-Network
+
+  # 3. RabbitMQ Message Broker
+  es-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: eventsnap_rabbitmq
+    env_file: *env-file
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - ./data/rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+  # 4. GPU Inference API (Local testing of Hugging Face Endpoints)
+  es-inference_api:
+    image: avneesh11905/inference_api:dev
+    ports:
+      - "5000:5000"
+    env_file: *env-file
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # 5. Main API (The Orchestrator)
+  es-main_api:
+    image: avneesh11905/main_api:dev
+    ports:
+      - "8000:8000"
+    env_file: *env-file
+    depends_on:
+      es-postgres:
+        condition: service_healthy
+      es-rabbitmq:
+        condition: service_healthy
+      es-inference_api:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+  # 6. Celery Worker (Background Processor)
+  es-celery_worker:
+    image: avneesh11905/main_api:dev
+    command: celery -A infrastructure.queue.celery_app worker --loglevel=info
+    env_file: *env-file
+    depends_on:
+      es-postgres:
+        condition: service_healthy
+      es-rabbitmq:
+        condition: service_healthy
+      es-inference_api:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - Eventsnap-Network
+
+networks:
+  Observer-Network:
+    external: true
+  Eventsnap-Network:
+    driver: bridge

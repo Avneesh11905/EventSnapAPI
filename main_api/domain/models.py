@@ -1,18 +1,25 @@
-from pydantic import BaseModel
-from typing import List, Optional
-from uuid import UUID
+from dataclasses import dataclass
+from typing import List
 
-class FaceEncoding(BaseModel):
+
+@dataclass
+class FaceEncoding:
     embedding: List[float]
     confidence: float
 
-class MatchResult(BaseModel):
+
+@dataclass
+class MatchResult:
     image_path: str
     match_count: int
     best_distance: float
 
-class AttendeeProfile(BaseModel):
+
+@dataclass
+class AttendeeProfile:
     encodings: List[List[float]]
 
-class Event(BaseModel):
+
+@dataclass
+class Event:
     folder_path: str

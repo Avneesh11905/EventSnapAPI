@@ -1,0 +1,50 @@
+FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+# Disable tzdata interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+
+# Install Python 3.11 and necessary system libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    curl \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    libgl1 \
+    libglib2.0-0 \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy uv binary
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+RUN groupadd --system appgroup \
+    && useradd --system --gid appgroup --create-home appuser
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+
+ENV UV_PYTHON=python3.11
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
+
+COPY . .
+RUN chown -R appuser:appgroup /app
+
+# Download Hugging Face ONNX Models inside the image
+RUN /app/.venv/bin/python download_models.py
+
+USER appuser
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 5000
+
+CMD ["uvicorn", "presentation.api.main:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "1"]
