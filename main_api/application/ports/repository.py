@@ -6,9 +6,7 @@ class IEventRepository(Protocol):
     async def get_already_encoded_images(self, event_code: str) -> Set[str]:
         pass
 
-    async def save_encodings(
-        self, encodings: List[EventEncodingDTO]
-    ) -> None:
+    async def save_encodings(self, encodings: List[EventEncodingDTO]) -> None:
         pass
 
     async def check_event_has_data(self, event_code: str) -> bool:
@@ -33,4 +31,3 @@ class IEventRepository(Protocol):
         self, event_code: str, encodings: List[List[float]], limit: int = 5
     ) -> List[Dict[str, Any]]:
         pass
-

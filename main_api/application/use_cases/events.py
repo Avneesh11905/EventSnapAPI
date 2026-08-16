@@ -1,5 +1,5 @@
 from application.ports.queue import ITaskQueueService
-from application.ports.repository import IEventRepository
+from application.ports.uow import IUnitOfWork
 from application.dtos import EncodedCountDTO, DeleteTableDTO
 
 
@@ -28,23 +28,26 @@ class CheckEncodingStatusUseCase:
 
 
 class GetEncodedCountUseCase:
-    def __init__(self, repository: IEventRepository):
-        self.repository = repository
+    def __init__(self, uow: IUnitOfWork):
+        self.uow = uow
 
     async def execute(self, event_code: str) -> EncodedCountDTO:
-        exists = await self.repository.check_event_has_data(event_code)
-        if not exists:
-            return EncodedCountDTO(encoded_count=0, table_exists=False)
-        count = await self.repository.get_encoded_count(event_code)
-        return EncodedCountDTO(encoded_count=count, table_exists=True)
+        async with self.uow as uow:
+            exists = await uow.event_repo.check_event_has_data(event_code)
+            if not exists:
+                return EncodedCountDTO(encoded_count=0, table_exists=False)
+            count = await uow.event_repo.get_encoded_count(event_code)
+            return EncodedCountDTO(encoded_count=count, table_exists=True)
 
 
 class DeleteEventTableUseCase:
-    def __init__(self, repository: IEventRepository):
-        self.repository = repository
+    def __init__(self, uow: IUnitOfWork):
+        self.uow = uow
 
     async def execute(self, event_code: str) -> DeleteTableDTO:
-        await self.repository.delete_event_data(event_code)
+        async with self.uow as uow:
+            await uow.event_repo.delete_event_data(event_code)
+            await uow.commit()
         return DeleteTableDTO(
             success=True,
             message=f"Data for event '{event_code}' deleted successfully if it existed.",

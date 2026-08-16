@@ -16,14 +16,15 @@ from application.use_cases.background_tasks import (
     CreateEventZipUseCase,
     EncodeImageBatchUseCase,
 )
-from infrastructure.database.repository import PostgresEventRepository
+from infrastructure.database.uow import AsyncSqlAlchemyUnitOfWork
 from infrastructure.storage.minio_service import MinioStorageService
 from infrastructure.inference.hf_inference_service import HFInferenceService
 from infrastructure.queue.celery_service import CeleryTaskQueueService
 from infrastructure.image_augmenter import OpenCVImageAugmenter
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from config import settings
 from sqlalchemy.pool import NullPool
+import httpx
 
 
 class Container(containers.DeclarativeContainer):
@@ -51,7 +52,11 @@ class Container(containers.DeclarativeContainer):
         create_async_engine, config.db_url, poolclass=NullPool
     )
 
-    event_repository = providers.Factory(PostgresEventRepository, engine=db_engine)
+    session_factory = providers.Singleton(
+        async_sessionmaker, bind=db_engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+    uow = providers.Factory(AsyncSqlAlchemyUnitOfWork, session_factory=session_factory)
 
     storage_service = providers.Factory(
         MinioStorageService,
@@ -61,9 +66,12 @@ class Container(containers.DeclarativeContainer):
         secret_key=config.minio_secret,
     )
 
+    http_client = providers.Singleton(httpx.AsyncClient, timeout=120.0)
+
     inference_service = providers.Factory(
         HFInferenceService,
         api_url=config.inference_url,
+        client=http_client,
     )
 
     queue_service = providers.Factory(CeleryTaskQueueService)
@@ -78,13 +86,9 @@ class Container(containers.DeclarativeContainer):
         CheckEncodingStatusUseCase, queue_service=queue_service
     )
 
-    get_encoded_count_use_case = providers.Factory(
-        GetEncodedCountUseCase, repository=event_repository
-    )
+    get_encoded_count_use_case = providers.Factory(GetEncodedCountUseCase, uow=uow)
 
-    delete_event_table_use_case = providers.Factory(
-        DeleteEventTableUseCase, repository=event_repository
-    )
+    delete_event_table_use_case = providers.Factory(DeleteEventTableUseCase, uow=uow)
 
     encode_attendee_use_case = providers.Factory(
         EncodeAttendeeUseCase,
@@ -92,9 +96,7 @@ class Container(containers.DeclarativeContainer):
         augmenter=image_augmenter,
     )
 
-    sort_attendee_use_case = providers.Factory(
-        SortAttendeeUseCase, repository=event_repository
-    )
+    sort_attendee_use_case = providers.Factory(SortAttendeeUseCase, uow=uow)
 
     generate_zip_use_case = providers.Factory(
         GenerateZipUseCase, queue_service=queue_service
@@ -107,7 +109,7 @@ class Container(containers.DeclarativeContainer):
     process_event_encoding_use_case = providers.Factory(
         ProcessEventEncodingUseCase,
         storage_service=storage_service,
-        repository=event_repository,
+        uow=uow,
         queue_service=queue_service,
     )
 
@@ -115,7 +117,7 @@ class Container(containers.DeclarativeContainer):
         EncodeImageBatchUseCase,
         storage_service=storage_service,
         inference_service=inference_service,
-        repository=event_repository,
+        uow=uow,
     )
 
     create_event_zip_use_case = providers.Factory(

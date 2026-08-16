@@ -28,7 +28,9 @@ class ProcessImagesUseCase:
 
         try:
             is_batch = isinstance(inputs, list)
-            input_strings: list[str] = list(inputs) if isinstance(inputs, list) else [str(inputs)]
+            input_strings: list[str] = (
+                list(inputs) if isinstance(inputs, list) else [str(inputs)]
+            )
 
             logger.info(f"Processing inference for {len(input_strings)} images")
 
@@ -41,7 +43,9 @@ class ProcessImagesUseCase:
                 nms_threshold=nms_thresh,
             )
 
-            final_results: list[list[dict[str, Any]]] = [[] for _ in range(len(cv_images))]
+            final_results: list[list[dict[str, Any]]] = [
+                [] for _ in range(len(cv_images))
+            ]
             all_aligned_faces = []
             face_mapping = []
 
