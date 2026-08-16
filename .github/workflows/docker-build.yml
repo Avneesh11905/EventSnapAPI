@@ -8,7 +8,27 @@ on:
       - 'v*.*.*'
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      main: ${{ steps.filter.outputs.main }}
+      inference: ${{ steps.filter.outputs.inference }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            main:
+              - 'main_api/**'
+              - '.github/workflows/docker-build.yml'
+            inference:
+              - 'inference_api/**'
+              - '.github/workflows/docker-build.yml'
+
   build-and-push-main-api:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.main == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -45,6 +65,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-and-push-inference-cpu:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.inference == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -81,6 +103,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-and-push-inference-gpu:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.inference == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
