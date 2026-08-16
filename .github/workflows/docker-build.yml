@@ -21,10 +21,8 @@ jobs:
           filters: |
             main:
               - 'main_api/**'
-              - '.github/workflows/docker-build.yml'
             inference:
               - 'inference_api/**'
-              - '.github/workflows/docker-build.yml'
 
   build-and-push-main-api:
     needs: detect-changes
