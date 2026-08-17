@@ -13,7 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - ./data/postgres/data:/var/lib/postgresql
-      - ./data/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -47,7 +47,7 @@ services:
     env_file: *env-file
     volumes:
       - ./data/redis/data:/data
-      - ./data/redis/redis.acl:/mnt/users.acl:ro
+      - ./config/redis/redis.acl:/mnt/users.acl:ro
     command: [ "redis-server", "--port", "${REDIS_PORT:-6379}", "--aclfile", "/mnt/users.acl" ]
     healthcheck:
       test: [ "CMD-SHELL", "redis-cli -p ${REDIS_PORT:-6379} ping | grep -E '(PONG|NOAUTH)'" ]
@@ -70,7 +70,7 @@ services:
       - "15672:15672" # Management UI
     volumes:
       - ./data/rabbitmq/data:/var/lib/rabbitmq
-      - ./data/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
