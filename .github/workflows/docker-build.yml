@@ -71,9 +71,9 @@ jobs:
         
       - name: Copy Configuration Files
         run: |
-          sudo cp main_api/docker-compose.yml /home/eventsnap/docker-compose.yml
-          sudo mkdir -p /home/eventsnap/data
-          sudo cp -a data/. /home/eventsnap/data/
+          cp main_api/docker-compose.yml /home/eventsnap/docker-compose.yml
+          mkdir -p /home/eventsnap/data
+          cp -a data/. /home/eventsnap/data/
 
       - name: Deploy main_api
         run: sudo /usr/local/bin/eventsnap
