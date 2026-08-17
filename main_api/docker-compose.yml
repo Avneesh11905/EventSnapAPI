@@ -9,8 +9,6 @@ services:
     image: pgvector/pgvector:pg18-trixie
     container_name: eventsnap_db
     env_file: *env-file
-    ports:
-      - "5432:5432"
     volumes:
       - ./data/postgres/data:/var/lib/postgresql
       - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -49,7 +47,6 @@ services:
     container_name: eventsnap_rabbitmq
     env_file: *env-file
     ports:
-      - "5672:5672"   # AMQP port
       - "15672:15672" # Management UI
     volumes:
       - ./data/rabbitmq/data:/var/lib/rabbitmq
@@ -79,7 +76,7 @@ services:
   es-main_api:
     image: avneesh11905/main_api:latest
     ports:
-      - "8000:8000"
+      - "8003:8000"
     env_file: *env-file
     depends_on:
       es-postgres:
