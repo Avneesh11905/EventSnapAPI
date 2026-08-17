@@ -21,9 +21,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Stage 2: Final Runtime Image
 FROM python:3.14-slim-trixie AS final
 
-# Install runtime PostgreSQL dependencies, utilities, and OpenCV libraries
+# Install runtime PostgreSQL dependencies, utilities, OpenCV libraries, and Infisical CLI
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libpq5 curl procps libgl1 libglib2.0-0 \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | bash \
+    && apt-get update && apt-get install -y infisical \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system appgroup \
@@ -46,4 +48,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["gunicorn", "presentation.api.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--forwarded-allow-ips", "*"]
+CMD ["infisical", "run", "--", "gunicorn", "presentation.api.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--forwarded-allow-ips", "*"]

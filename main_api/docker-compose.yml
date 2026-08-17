@@ -3,51 +3,28 @@ name: eventsnap
 x-env-file: &env-file
   - .env
 
+x-main-api-image: &main-api-image avneesh11905/main_api:latest
+
+x-server-port: &server-port 
+  - "8003:8000"
+
+x-networks: &networks
+  - Eventsnap-Network
+  - Infrastructure-Network
+
+networks:
+  Eventsnap-Network:
+    driver: bridge
+  Infrastructure-Network:
+    external: true
+
 services:
-  # 1. PostgreSQL Database with pgvector pre-installed
-  es-postgres:
-    image: pgvector/pgvector:pg18-trixie
-    container_name: eventsnap_db
-    env_file: *env-file
-    volumes:
-      - ./data/postgres/data:/var/lib/postgresql
-      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - Eventsnap-Network
-      - Observer-Network
-
-  es-redis:
-    image: redis:8.8.0
-    container_name: eventsnap_redis
-    env_file: *env-file
-    volumes:
-      - ./data/redis/data:/data
-      - ./config/redis/redis.acl:/mnt/users.acl:ro
-    command: [ "redis-server", "--port", "${REDIS_PORT:-6379}", "--aclfile", "/mnt/users.acl" ]
-    healthcheck:
-      test: [ "CMD-SHELL", "redis-cli -p ${REDIS_PORT:-6379} ping | grep -E '(PONG|NOAUTH)'" ]
-      start_period: 10s
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks: 
-      - Eventsnap-Network
-      - Observer-Network
-
-  # 3. RabbitMQ Message Broker
   es-rabbitmq:
     image: rabbitmq:3-management
     container_name: eventsnap_rabbitmq
     env_file: *env-file
     ports:
-      - "15672:15672" # Management UI
+      - "15672:15672"
     volumes:
       - ./data/rabbitmq/data:/var/lib/rabbitmq
       - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
@@ -60,53 +37,38 @@ services:
     networks:
       - Eventsnap-Network
 
-  # 5. Database Migration (Init Container)
   es-db_migration:
-    image: avneesh11905/main_api:latest
+    image: *main-api-image
     container_name: eventsnap_migration
-    command: alembic upgrade head
+    command: infisical run -- alembic upgrade head
     env_file: *env-file
+    networks: *networks
     depends_on:
-      es-postgres:
+      es-rabbitmq:
         condition: service_healthy
-    networks:
-      - Eventsnap-Network
 
-  # 6. Main API (The Orchestrator)
   es-main_api:
-    image: avneesh11905/main_api:latest
-    ports:
-      - "8003:8000"
+    image: *main-api-image
+    ports: *server-port 
     env_file: *env-file
     depends_on:
-      es-postgres:
-        condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
       es-rabbitmq:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - Eventsnap-Network
+    networks: *networks
 
-  # 7. Celery Worker (Background Processor)
   es-celery_worker:
-    image: avneesh11905/main_api:latest
-    command: celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
+    image: *main-api-image
+    command: infisical run -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
     env_file: *env-file
     depends_on:
-      es-postgres:
-        condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
       es-rabbitmq:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - Eventsnap-Network
+    networks: *networks
 
-networks:
-  Observer-Network:
-    external: true
-  Eventsnap-Network:
-    driver: bridge
+
