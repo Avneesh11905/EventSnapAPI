@@ -68,7 +68,7 @@ jobs:
     runs-on: [self-hosted, eventsnap]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         
       - name: Copy Configuration Files
         run: |
