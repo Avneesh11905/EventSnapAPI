@@ -4,7 +4,14 @@ from infrastructure.di_container import get_container
 import dataclasses
 
 
-@shared_task(bind=True, name="encode_event_task", acks_late=True)
+@shared_task(
+    bind=True,
+    name="encode_event_task",
+    acks_late=True,
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 5},
+    retry_backoff=True,
+)
 def encode_event_task(
     self,
     event_code: str,
@@ -32,7 +39,14 @@ def encode_event_task(
     return result
 
 
-@shared_task(bind=True, name="encode_image_batch_task", acks_late=True)
+@shared_task(
+    bind=True,
+    name="encode_image_batch_task",
+    acks_late=True,
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 5},
+    retry_backoff=True,
+)
 def encode_image_batch_task(
     self,
     event_code: str,
