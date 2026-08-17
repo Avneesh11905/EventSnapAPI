@@ -66,6 +66,15 @@ jobs:
     needs: build-and-push-main-api
     runs-on: [self-hosted, eventsnap]
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Copy Configuration Files
+        run: |
+          sudo cp main_api/docker-compose.yml /home/eventsnap/docker-compose.yml
+          sudo mkdir -p /home/eventsnap/data
+          sudo cp -a data/. /home/eventsnap/data/
+
       - name: Deploy main_api
         run: sudo /usr/local/bin/eventsnap
 
