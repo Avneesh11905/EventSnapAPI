@@ -62,6 +62,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  deploy-main-api:
+    needs: build-and-push-main-api
+    runs-on: [self-hosted, eventsnap]
+    steps:
+      - name: Deploy main_api
+        run: sudo /usr/local/bin/eventsnap
+
   build-and-push-inference-cpu:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.inference == 'true' }}
@@ -137,3 +144,18 @@ jobs:
           labels: ${{ steps.meta_gpu.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-inference-api:
+    needs: build-and-push-inference-gpu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Google Cloud VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: github-actions
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          script: |
+            cd /app
+            sudo docker compose pull
+            sudo docker compose up -d
