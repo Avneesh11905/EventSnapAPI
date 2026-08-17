@@ -4,9 +4,8 @@ from typing import List, Dict
 
 
 class HFInferenceService(IInferenceService):
-    def __init__(self, api_url: str, client: httpx.AsyncClient):
+    def __init__(self, api_url: str):
         self.api_url = api_url
-        self.client = client
 
     async def get_face_encodings(
         self,
@@ -25,13 +24,14 @@ class HFInferenceService(IInferenceService):
             },
         }
 
-        response = await self.client.post(
-            f"{self.api_url}/", json=payload, headers=headers
-        )
-        response.raise_for_status()
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{self.api_url}/", json=payload, headers=headers
+            )
+            response.raise_for_status()
 
-        data = response.json()
-        if "error" in data:
-            raise RuntimeError(f"Inference API Error: {data['error']}")
+            data = response.json()
+            if "error" in data:
+                raise RuntimeError(f"Inference API Error: {data['error']}")
 
-        return data.get("batch_faces", [])
+            return data.get("batch_faces", [])
