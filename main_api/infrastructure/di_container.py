@@ -66,12 +66,9 @@ class Container(containers.DeclarativeContainer):
         secret_key=config.minio_secret,
     )
 
-    http_client = providers.Singleton(httpx.AsyncClient, timeout=120.0)
-
     inference_service = providers.Factory(
         HFInferenceService,
         api_url=config.inference_url,
-        client=http_client,
     )
 
     queue_service = providers.Factory(CeleryTaskQueueService)

@@ -131,7 +131,7 @@ services:
   # 7. Celery Worker (Background Processor)
   es-celery_worker:
     build: ./main_api
-    command: celery -A infrastructure.queue.celery_app worker --loglevel=info
+    command: celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
     env_file: *env-file
     depends_on:
       es-postgres:

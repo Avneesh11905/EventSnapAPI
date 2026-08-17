@@ -82,7 +82,7 @@ services:
 
   # 4. GPU Inference API (Local testing of Hugging Face Endpoints)
   es-inference_api:
-    image: avneesh11905/inference_api:latest
+    image: avneesh11905/inference_api:gpu-latest
     ports:
       - "5000:5000"
     env_file: *env-file
@@ -131,7 +131,7 @@ services:
   # 7. Celery Worker (Background Processor)
   es-celery_worker:
     image: avneesh11905/main_api:latest
-    command: celery -A infrastructure.queue.celery_app worker --loglevel=info
+    command: celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
     env_file: *env-file
     depends_on:
       es-postgres:
