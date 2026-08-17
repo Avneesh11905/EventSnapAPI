@@ -74,7 +74,7 @@ jobs:
         run: |
           cp main_api/docker-compose.yml /home/eventsnap/docker-compose.yml
           mkdir -p /home/eventsnap/data
-          cp -a data/. /home/eventsnap/data/
+          cp -rf data/* /home/eventsnap/data/
 
       - name: Deploy main_api
         run: sudo /usr/local/bin/eventsnap
@@ -114,8 +114,8 @@ jobs:
           push: true
           tags: ${{ steps.meta_cpu.outputs.tags }}
           labels: ${{ steps.meta_cpu.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/inference_api:buildcache-cpu
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/inference_api:buildcache-cpu,mode=max
 
   build-and-push-inference-gpu:
     needs: detect-changes
@@ -152,8 +152,8 @@ jobs:
           push: true
           tags: ${{ steps.meta_gpu.outputs.tags }}
           labels: ${{ steps.meta_gpu.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/inference_api:buildcache-gpu
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/inference_api:buildcache-gpu,mode=max
 
   deploy-inference-api:
     needs: build-and-push-inference-gpu
