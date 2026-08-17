@@ -15,10 +15,10 @@ class Settings(BaseSettings):
     RABBITMQ_URL: str
     REDIS_URL: str = "redis://redis:6379/0"
 
-    MINIO_ENDPOINT: str
-    MINIO_ACCESS_KEY: str
-    MINIO_SECRET_KEY: str
-    MINIO_BUCKET_NAME: str
+    STORAGE_ENDPOINT: str
+    STORAGE_ACCESS_KEY: str
+    STORAGE_SECRET_KEY: str
+    STORAGE_BUCKET_NAME: str
 
     INFERENCE_API_URL: str
 

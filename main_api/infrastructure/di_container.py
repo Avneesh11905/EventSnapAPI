@@ -40,10 +40,10 @@ class Container(containers.DeclarativeContainer):
     config.from_dict(
         {
             "db_url": settings.DATABASE_URL,
-            "minio_endpoint": settings.MINIO_ENDPOINT,
-            "minio_bucket": settings.MINIO_BUCKET_NAME,
-            "minio_access": settings.MINIO_ACCESS_KEY,
-            "minio_secret": settings.MINIO_SECRET_KEY,
+            "minio_endpoint": settings.STORAGE_ENDPOINT,
+            "minio_bucket": settings.STORAGE_BUCKET_NAME,
+            "minio_access": settings.STORAGE_ACCESS_KEY,
+            "minio_secret": settings.STORAGE_SECRET_KEY,
             "inference_url": settings.INFERENCE_API_URL,
         }
     )
