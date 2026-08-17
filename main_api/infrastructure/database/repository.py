@@ -2,7 +2,7 @@ from application.ports.repository import IEventRepository
 from infrastructure.database.models import EventEncodingModel
 from application.dtos import EventEncodingDTO
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import insert, select, delete, func, literal_column, values, column
+from sqlalchemy import insert, select, delete, func, literal_column, values, column, Integer, String, cast
 from pgvector.sqlalchemy import Vector
 from typing import List, Set, Dict, Any
 import dataclasses
@@ -57,12 +57,12 @@ class PostgresEventRepository(IEventRepository):
         min_matches: int,
     ) -> List[str]:
         ref_encodings = (
-            values(column("id"), column("embedding", Vector(512)), name="ref_encodings")
-            .data([(i + 1, emb) for i, emb in enumerate(encodings)])
+            values(column("id", Integer), column("embedding", String), name="ref_encodings")
+            .data([(i + 1, str(emb)) for i, emb in enumerate(encodings)])
             .cte("ref_encodings")
         )
 
-        distance_op = EventEncodingModel.embedding.op("<=>")(ref_encodings.c.embedding)
+        distance_op = EventEncodingModel.embedding.op("<=>")(cast(ref_encodings.c.embedding, Vector(512)))
 
         stmt = (
             select(
@@ -88,12 +88,12 @@ class PostgresEventRepository(IEventRepository):
         self, event_code: str, encodings: List[List[float]], limit: int = 5
     ) -> List[Dict[str, Any]]:
         ref_encodings = (
-            values(column("id"), column("embedding", Vector(512)), name="ref_encodings")
-            .data([(i + 1, emb) for i, emb in enumerate(encodings)])
+            values(column("id", Integer), column("embedding", String), name="ref_encodings")
+            .data([(i + 1, str(emb)) for i, emb in enumerate(encodings)])
             .cte("ref_encodings")
         )
 
-        distance_op = EventEncodingModel.embedding.op("<=>")(ref_encodings.c.embedding)
+        distance_op = EventEncodingModel.embedding.op("<=>")(cast(ref_encodings.c.embedding, Vector(512)))
 
         stmt = (
             select(
