@@ -1,8 +1,6 @@
 images/
-data/*/data
-data/minio
+data/
 tests/
-datasets/
 /**/__pycache__
 /**/.env*
 !/**/.env.example
