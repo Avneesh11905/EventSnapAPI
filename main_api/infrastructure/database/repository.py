@@ -2,7 +2,7 @@ from application.ports.repository import IEventRepository
 from infrastructure.database.models import EventEncodingModel
 from application.dtos import EventEncodingDTO
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import insert, select, delete, func, literal_column, values, column, Integer, String, cast
+from sqlalchemy import insert, select, delete, func, literal_column, values, column, Integer, String, cast, Float
 from pgvector.sqlalchemy import Vector
 from typing import List, Set, Dict, Any
 import dataclasses
@@ -62,7 +62,7 @@ class PostgresEventRepository(IEventRepository):
             .cte("ref_encodings")
         )
 
-        distance_op = EventEncodingModel.embedding.op("<=>")(cast(ref_encodings.c.embedding, Vector(512)))
+        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(cast(ref_encodings.c.embedding, Vector(512)))
 
         stmt = (
             select(
@@ -93,7 +93,7 @@ class PostgresEventRepository(IEventRepository):
             .cte("ref_encodings")
         )
 
-        distance_op = EventEncodingModel.embedding.op("<=>")(cast(ref_encodings.c.embedding, Vector(512)))
+        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(cast(ref_encodings.c.embedding, Vector(512)))
 
         stmt = (
             select(
