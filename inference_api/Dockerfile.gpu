@@ -1,50 +1,82 @@
-FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+# Stage 1: Base builder image with python and uv
+FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS builder
 
-# Disable tzdata interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
+ENV UV_PYTHON=python3.11
 
-# Install Python 3.11 and necessary system libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common \
-    curl \
+    software-properties-common curl ca-certificates bash \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update \
-    && apt-get install -y --no-install-recommends \
-    python3.11 \
-    python3.11-venv \
-    libgl1 \
-    libglib2.0-0 \
-    procps \
+    && apt-get install -y --no-install-recommends python3.11 python3.11-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy uv binary
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+WORKDIR /app
+
+
+# Stage 2: Development Environment
+FROM builder AS development
+
+RUN curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | bash \
+    && apt-get update && apt-get install -y infisical \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project
+
+COPY . .
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app
+
+
+# Stage 3: Production Builder
+FROM builder AS production
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+
+
+# Stage 4: Final Runtime Image
+FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS final
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common curl ca-certificates procps libgl1 libglib2.0-0 bash \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | bash \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends python3.11 python3.11-venv infisical \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system appgroup \
     && useradd --system --gid appgroup --create-home appuser
 
 WORKDIR /app
-COPY pyproject.toml uv.lock ./
 
-ENV UV_PYTHON=python3.11
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+# Copy virtual environment from production builder
+COPY --from=production --chown=appuser:appgroup /app/.venv /app/.venv
 
-COPY . .
-RUN chown -R appuser:appgroup /app
-
-# Download Hugging Face ONNX Models inside the image
+# Copy ONLY download_models.py first to cache the model download layer
+COPY --chown=appuser:appgroup download_models.py .
 RUN /app/.venv/bin/python download_models.py
 
-USER appuser
+# Now copy the rest of the local source code
+COPY --chown=appuser:appgroup . .
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+USER appuser
 EXPOSE 5000
 
-CMD ["uvicorn", "presentation.api.main:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "1"]
+CMD ["infisical", "run", "--", "gunicorn", "presentation.api.main:app", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:5000", "--forwarded-allow-ips", "*"]

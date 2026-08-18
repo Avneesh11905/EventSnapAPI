@@ -3,64 +3,15 @@ name: eventsnap
 x-env-file: &env-file
   - .env
 
+networks:
+  Eventsnap-Network:
+    driver: bridge
+
+volumes:
+  main_api_venv:
+  inference_api_venv:
+
 services:
-  # 1. PostgreSQL Database with pgvector pre-installed
-  es-postgres:
-    image: pgvector/pgvector:pg18-trixie
-    container_name: eventsnap_db
-    env_file: *env-file
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./data/postgres/data:/var/lib/postgresql
-      - ./data/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - Eventsnap-Network
-      - Observer-Network
-
-  #2. Minio Object Storage
-  es-minio:
-    image: minio/minio:latest
-    container_name: eventsnap_minio
-    command: server /data --console-address ":9001"
-    env_file: *env-file
-    volumes:
-      - ./data/minio:/data
-    ports:
-      - "9001:9001" 
-      - "9000:9000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://es-minio:9000/minio/health/live"]
-    restart: unless-stopped
-    networks:
-      - Eventsnap-Network
-
-  es-redis:
-    image: redis:8.8.0
-    container_name: eventsnap_redis
-    env_file: *env-file
-    volumes:
-      - ./data/redis/data:/data
-      - ./data/redis/redis.acl:/mnt/users.acl:ro
-    command: [ "redis-server", "--port", "${REDIS_PORT:-6379}", "--aclfile", "/mnt/users.acl" ]
-    healthcheck:
-      test: [ "CMD-SHELL", "redis-cli -p ${REDIS_PORT:-6379} ping | grep -E '(PONG|NOAUTH)'" ]
-      start_period: 10s
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks: 
-      - Eventsnap-Network
-      - Observer-Network
-
-  # 3. RabbitMQ Message Broker
   es-rabbitmq:
     image: rabbitmq:3-management
     container_name: eventsnap_rabbitmq
@@ -69,8 +20,8 @@ services:
       - "5672:5672"   # AMQP port
       - "15672:15672" # Management UI
     volumes:
-      - ./data/rabbitmq/data:/var/lib/rabbitmq
-      - ./data/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./data/rabbitmq:/var/lib/rabbitmq
+      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -80,15 +31,20 @@ services:
     networks:
       - Eventsnap-Network
 
-  # 4. GPU Inference API (Local testing of Hugging Face Endpoints)
   es-inference_api:
-    build: ./inference_api
+    build: 
+      context: ./inference_api
+      dockerfile: Dockerfile.gpu
+      target: development
+    env_file: *env-file
+    volumes:
+      - ./inference_api:/app
+      - inference_api_venv:/app/.venv
     ports:
       - "5000:5000"
-    env_file: *env-file
     restart: unless-stopped
-    networks:
-      - Eventsnap-Network
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; fi'
     deploy:
       resources:
         reservations:
@@ -96,28 +52,37 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
-  # 5. Database Migration (Init Container)
-  es-db_migration:
-    build: ./main_api
-    container_name: eventsnap_migration
-    command: alembic upgrade head
-    env_file: *env-file
-    depends_on:
-      es-postgres:
-        condition: service_healthy
     networks:
       - Eventsnap-Network
 
-  # 6. Main API (The Orchestrator)
+  es-db_migration:
+    build: 
+      context: ./main_api
+      target: development
+    container_name: eventsnap_migration
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- alembic upgrade head; else alembic upgrade head; fi'
+    env_file: *env-file
+    volumes:
+      - ./main_api:/app
+      - main_api_venv:/app/.venv
+    restart: no
+    networks:
+      - Eventsnap-Network
+
   es-main_api:
-    build: ./main_api
+    build: 
+      context: ./main_api
+      target: development
+    env_file: *env-file
     ports:
       - "8000:8000"
-    env_file: *env-file
+    volumes:
+      - ./main_api:/app
+      - main_api_venv:/app/.venv
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
     depends_on:
-      es-postgres:
-        condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
       es-rabbitmq:
@@ -128,14 +93,17 @@ services:
     networks:
       - Eventsnap-Network
 
-  # 7. Celery Worker (Background Processor)
   es-celery_worker:
-    build: ./main_api
-    command: celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
+    build: 
+      context: ./main_api
+      target: development
     env_file: *env-file
+    volumes:
+      - ./main_api:/app
+      - main_api_venv:/app/.venv
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
     depends_on:
-      es-postgres:
-        condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
       es-rabbitmq:
@@ -146,8 +114,3 @@ services:
     networks:
       - Eventsnap-Network
 
-networks:
-  Observer-Network:
-    external: true
-  Eventsnap-Network:
-    driver: bridge

@@ -11,6 +11,28 @@ RUN apt-get update && \
     apt-get install -y gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
+# Stage 2: Development Environment
+FROM builder AS development
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates bash \
+    && curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | bash \
+    && apt-get update && apt-get install -y infisical \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project
+
+COPY . .
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app
+
+
+# Stage 3: Production Builder
+FROM builder AS production
+
 # Install dependencies using uv.lock and pyproject.toml
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -18,13 +40,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 
-# Stage 2: Final Runtime Image
+# Stage 4: Final Runtime Image
 FROM python:3.14-slim-trixie AS final
 
 # Install runtime PostgreSQL dependencies, utilities, OpenCV libraries, and Infisical CLI
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libpq5 curl procps libgl1 libglib2.0-0 \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | bash \
+    && curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | bash \
     && apt-get update && apt-get install -y infisical \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,8 +55,8 @@ RUN groupadd --system appgroup \
 
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder --chown=appuser:appgroup /app/.venv /app/.venv
+# Copy virtual environment from production builder
+COPY --from=production --chown=appuser:appgroup /app/.venv /app/.venv
 
 # Copy local source code
 COPY --chown=appuser:appgroup . .
