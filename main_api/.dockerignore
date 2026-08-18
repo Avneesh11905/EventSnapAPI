@@ -36,5 +36,4 @@ Dockerfile*
 .dockerignore
 
 # Project specific
-models/
 data/

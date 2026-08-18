@@ -3,8 +3,10 @@ data/
 tests/
 /**/__pycache__
 /**/.env*
-!/**/.env.example
+
 /**/.venv
 /**/.mypy_cache
 /**/.ruff_cache
 *.env
+!dev.env
+!all_in_one.env

@@ -3,28 +3,21 @@ name: eventsnap
 x-env-file: &env-file
   - .env
 
-services:
-  # 1. PostgreSQL Database with pgvector pre-installed
-  es-postgres:
-    image: pgvector/pgvector:pg18-trixie
-    container_name: eventsnap_db
-    env_file: *env-file
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./data/postgres/data:/var/lib/postgresql
-      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - Eventsnap-Network
-      - Observer-Network
+x-db-network: &db-network
+  - Observer-Network
+  - Eventsnap-Network
 
-  #2. Minio Object Storage
+networks:
+  Observer-Network:
+    external: true
+  Eventsnap-Network:
+    driver: bridge
+
+volumes:
+  main_api_venv:
+  inference_api_venv:
+
+services:
   es-minio:
     image: minio/minio:latest
     container_name: eventsnap_minio
@@ -41,6 +34,23 @@ services:
     networks:
       - Eventsnap-Network
 
+  es-postgres:
+    image: pgvector/pgvector:pg18-trixie
+    container_name: eventsnap_db
+    env_file: *env-file
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres/data:/var/lib/postgresql
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: *db-network
+
   es-redis:
     image: redis:8.8.0
     container_name: eventsnap_redis
@@ -56,11 +66,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    networks: 
-      - Eventsnap-Network
-      - Observer-Network
+    networks: *db-network
 
-  # 3. RabbitMQ Message Broker
   es-rabbitmq:
     image: rabbitmq:3-management
     container_name: eventsnap_rabbitmq
@@ -80,9 +87,16 @@ services:
     networks:
       - Eventsnap-Network
 
-  # 4. GPU Inference API (Local testing of Hugging Face Endpoints)
   es-inference_api:
-    image: avneesh11905/inference_api:gpu-latest
+    build: 
+      context: ./inference_api
+      dockerfile: Dockerfile.gpu
+      target: development
+    volumes:
+      - ./inference_api:/app
+      - inference_api_venv:/app/.venv
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; fi'
     ports:
       - "5000:5000"
     env_file: *env-file
@@ -97,11 +111,16 @@ services:
               count: 1
               capabilities: [gpu]
 
-  # 5. Database Migration (Init Container)
   es-db_migration:
-    image: avneesh11905/main_api:latest
+    build: 
+      context: ./main_api
+      target: development
     container_name: eventsnap_migration
-    command: alembic upgrade head
+    volumes:
+      - ./main_api:/app
+      - main_api_venv:/app/.venv
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- alembic upgrade head; else alembic upgrade head; fi'
     env_file: *env-file
     depends_on:
       es-postgres:
@@ -109,12 +128,18 @@ services:
     networks:
       - Eventsnap-Network
 
-  # 6. Main API (The Orchestrator)
   es-main_api:
-    image: avneesh11905/main_api:latest
+    build: 
+      context: ./main_api
+      target: development
+    volumes:
+      - ./main_api:/app
+      - main_api_venv:/app/.venv
     ports:
       - "8000:8000"
     env_file: *env-file
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
     depends_on:
       es-postgres:
         condition: service_healthy
@@ -128,10 +153,15 @@ services:
     networks:
       - Eventsnap-Network
 
-  # 7. Celery Worker (Background Processor)
   es-celery_worker:
-    image: avneesh11905/main_api:latest
-    command: celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
+    build: 
+      context: ./main_api
+      target: development
+    volumes:
+      - ./main_api:/app
+      - main_api_venv:/app/.venv
+    command: >
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
     env_file: *env-file
     depends_on:
       es-postgres:
@@ -146,8 +176,3 @@ services:
     networks:
       - Eventsnap-Network
 
-networks:
-  Observer-Network:
-    external: true
-  Eventsnap-Network:
-    driver: bridge
