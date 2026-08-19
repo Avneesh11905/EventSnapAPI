@@ -25,7 +25,7 @@ services:
       - "5000:5000"
     restart: unless-stopped
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; fi'
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; fi'
     deploy:
       resources:
         reservations:
@@ -42,7 +42,7 @@ services:
       target: development
     container_name: eventsnap_migration
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- alembic upgrade head; else alembic upgrade head; fi'
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- alembic upgrade head; else alembic upgrade head; fi'
     env_file: *env-file
     volumes:
       - ./main_api:/app
@@ -62,7 +62,7 @@ services:
       - ./main_api:/app
       - main_api_venv:/app/.venv
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
     depends_on:
       es-db_migration:
         condition: service_completed_successfully
@@ -81,7 +81,7 @@ services:
       - ./main_api:/app
       - main_api_venv:/app/.venv
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ]; then infisical run -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
+      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
     depends_on:
       es-db_migration:
         condition: service_completed_successfully
