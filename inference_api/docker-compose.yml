@@ -1,10 +1,13 @@
 name: eventsnap-inference
+x-env-file: &env-file
+  - .env
 
 services:
   inference_api:
     image: avneesh11905/inference_api:gpu-latest
     container_name: inference_api
     restart: unless-stopped
+    env_file: *env-file
     deploy:
       resources:
         reservations:
