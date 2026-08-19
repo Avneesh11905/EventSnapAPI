@@ -63,22 +63,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-main-api:
-    needs: build-and-push-main-api
-    runs-on: [self-hosted, eventsnap]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        
-      - name: Copy Configuration Files
-        run: |
-          cp main_api/docker-compose.yml /home/eventsnap/docker-compose.yml
-          mkdir -p /home/eventsnap/config
-          cp -rf config/* /home/eventsnap/config/
-
-      - name: Deploy main_api
-        run: sudo /usr/local/bin/eventsnap
-
   build-and-push-inference-cpu:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.inference == 'true' }}
@@ -155,8 +139,12 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/inference_api:buildcache-gpu
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/inference_api:buildcache-gpu,mode=max
 
-  deploy-inference-api:
-    needs: build-and-push-inference-gpu
+  deploy-all:
+    needs: [build-and-push-main-api, build-and-push-inference-gpu]
+    if: |
+      always() &&
+      (needs.build-and-push-main-api.result != 'failure' && needs.build-and-push-main-api.result != 'cancelled') &&
+      (needs.build-and-push-inference-gpu.result != 'failure' && needs.build-and-push-inference-gpu.result != 'cancelled')
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Google Cloud VM
