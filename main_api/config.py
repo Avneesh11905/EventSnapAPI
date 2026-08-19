@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     INFERENCE_API_URL: str
     WEBHOOK_SECRET: str = "your_super_secret_webhook_password_123"
 
+    SIMILARITY_THRESHOLD: float = 0.55
+    MIN_MATCHES: int = 2
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

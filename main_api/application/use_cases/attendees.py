@@ -11,7 +11,7 @@ from domain.exceptions import (
     EventNotFoundError,
     NoMatchesFoundError,
 )
-
+from config import settings
 
 class EncodeAttendeeUseCase:
     def __init__(
@@ -64,11 +64,8 @@ class SortAttendeeUseCase:
                     f"No encoded data found for event {event_code}."
                 )
 
-            SIMILARITY_THRESHOLD = 0.55
-            MIN_MATCHES = 2
-
             matched_paths = await uow.event_repo.find_matches(
-                event_code, attendee_encodings, SIMILARITY_THRESHOLD, MIN_MATCHES
+                event_code, attendee_encodings, settings.SIMILARITY_THRESHOLD, settings.MIN_MATCHES
             )
 
         if not matched_paths:
