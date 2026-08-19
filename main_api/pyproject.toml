@@ -9,6 +9,7 @@ dependencies = [
     "alembic>=1.19.1",
     "asyncpg>=0.29.0",
     "celery>=5.3.6",
+    "flower>=2.0.1",
     "dependency-injector>=4.41.0",
     "fastapi>=0.110.0",
     "gunicorn>=21.2.0",
