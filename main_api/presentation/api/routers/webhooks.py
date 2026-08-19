@@ -13,10 +13,11 @@ class InferenceStatusPayload(BaseModel):
 @router.post("/inference-status")
 async def update_inference_status(
     payload: InferenceStatusPayload,
-    x_webhook_secret: str = Header(...)
+    authorization: str = Header(...)
 ):
     # Security check: ensure the secret matches
-    if x_webhook_secret != settings.WEBHOOK_SECRET:
+    expected_token = f"Bearer {settings.WEBHOOK_SECRET}"
+    if authorization != expected_token:
         raise HTTPException(status_code=403, detail="Invalid webhook secret")
     
     if payload.status == "offline":
