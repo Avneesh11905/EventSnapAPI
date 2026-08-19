@@ -68,25 +68,6 @@ services:
     restart: unless-stopped
     networks: *db-network
 
-  es-rabbitmq:
-    image: rabbitmq:3-management
-    container_name: eventsnap_rabbitmq
-    env_file: *env-file
-    ports:
-      - "5672:5672"   # AMQP port
-      - "15672:15672" # Management UI
-    volumes:
-      - ./data/rabbitmq/data:/var/lib/rabbitmq
-      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-    networks:
-      - Eventsnap-Network
-
   es-inference_api:
     build: 
       context: ./inference_api
@@ -145,7 +126,7 @@ services:
         condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
-      es-rabbitmq:
+      es-redis:
         condition: service_healthy
       es-inference_api:
         condition: service_started
@@ -168,7 +149,7 @@ services:
         condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
-      es-rabbitmq:
+      es-redis:
         condition: service_healthy
       es-inference_api:
         condition: service_started
