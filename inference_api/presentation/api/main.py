@@ -18,7 +18,6 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Any necessary init happens via Dependency Injector singletons if needed
     
     main_api_url = settings.MAIN_API_URL
     webhook_secret = settings.WEBHOOK_SECRET
@@ -43,10 +42,11 @@ async def lifespan(app: FastAPI):
                 logger.error(f"Failed to send online webhook: {e}. Retrying in 5 seconds...")
                 await asyncio.sleep(5)
 
-    # Run the robust webhook logic in the background so we don't block server startup
-    asyncio.create_task(fire_online_webhook_with_retry())
+    task = asyncio.create_task(fire_online_webhook_with_retry())
         
     yield
+
+    task.cancel()
 
 app = FastAPI(
     title="Eventsnap Inference API",
@@ -63,6 +63,10 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 add_exception_handlers(app)
 
 app.include_router(inference.router)
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     port = 5000

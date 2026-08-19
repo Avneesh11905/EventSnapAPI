@@ -9,15 +9,51 @@ from infrastructure.di_container import get_container
 from sqlalchemy import text
 from infrastructure.queue.celery_app import celery_app
 
-# Create the container at startup to wire everything
-container = get_container()
+import asyncio
+import httpx
+import logging
+from config import settings
 
+container = get_container()
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Any necessary init happens via Dependency Injector singletons if needed
+    
+    async def poll_inference_api():
+        consecutive_failures = 0
+        current_state = "online" 
+        
+        while True:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(f"{settings.INFERENCE_API_URL.rstrip('/')}/health", timeout=5.0)
+                    response.raise_for_status()
+                    
+                consecutive_failures = 0
+                if current_state == "offline":
+                    logger.info("Poller: Inference API is back online! Resuming Celery queue...")
+                    await asyncio.to_thread(celery_app.control.add_consumer, 'celery', reply=True)
+                    current_state = "online"
+                    
+            except Exception as e:
+                consecutive_failures += 1
+                if consecutive_failures >= 3 and current_state == "online":
+                    logger.warning(f"Poller: Inference API health check failed {consecutive_failures} times! Pausing Celery queue...")
+                    await asyncio.to_thread(celery_app.control.cancel_consumer, 'celery', reply=True)
+                    current_state = "offline"
+                    
+            # Wait 10 seconds before next ping
+            await asyncio.sleep(10)
+            
+    # Start the background task
+    task = asyncio.create_task(poll_inference_api())
+    
     yield
-
+    
+    # Clean up on shutdown
+    task.cancel()
 
 app = FastAPI(
     title="Eventsnap Main API (Orchestrator) - Clean",
