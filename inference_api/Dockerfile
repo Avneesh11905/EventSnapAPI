@@ -74,4 +74,4 @@ USER appuser
 
 EXPOSE 5000
 
-CMD ["infisical", "run", "--", "gunicorn", "presentation.api.main:app", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:5000", "--forwarded-allow-ips", "*"]
+CMD ["bash", "-c", "if [ -n \"$INFISICAL_TOKEN\" ]; then infisical run -- gunicorn presentation.api.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:5000 --forwarded-allow-ips *; else gunicorn presentation.api.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:5000 --forwarded-allow-ips *; fi"]
