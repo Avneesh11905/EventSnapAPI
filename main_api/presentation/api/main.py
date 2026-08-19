@@ -4,7 +4,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from presentation.api.exception_handlers import add_exception_handlers
 from presentation.api.schemas import HealthResponse
 
-from presentation.api.routers import events, attendees
+from presentation.api.routers import events, attendees, webhooks
 from infrastructure.di_container import get_container
 from sqlalchemy import text
 from infrastructure.queue.celery_app import celery_app
@@ -32,6 +32,7 @@ add_exception_handlers(app)
 
 app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(attendees.router, prefix="/api/attendees", tags=["Attendees"])
+app.include_router(webhooks.router, prefix="/api")
 
 
 @app.get("/api/tasks/{task_id}", tags=["Tasks"])

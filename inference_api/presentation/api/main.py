@@ -11,9 +11,47 @@ from presentation.api.exception_handlers import add_exception_handlers
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import os
+import httpx2
+from infrastructure.config import settings
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Any necessary init happens via Dependency Injector singletons if needed
+    
+    main_api_url = settings.MAIN_API_URL
+    webhook_secret = settings.WEBHOOK_SECRET
+    
+    import asyncio
+    
+    async def fire_online_webhook_with_retry():
+        while True:
+            try:
+                logger.info(f"Firing online webhook to {main_api_url}...")
+                async with httpx2.AsyncClient() as client:
+                    response = await client.post(
+                        f"{main_api_url.rstrip('/')}/api/webhooks/inference-status",
+                        json={"status": "online"},
+                        headers={"X-Webhook-Secret": webhook_secret},
+                        timeout=5.0
+                    )
+                    response.raise_for_status()
+                logger.info("Successfully sent online webhook! Celery is unpaused.")
+                break  # Exit loop on success
+            except Exception as e:
+                logger.error(f"Failed to send online webhook: {e}. Retrying in 5 seconds...")
+                await asyncio.sleep(5)
+
+    # Run the robust webhook logic in the background so we don't block server startup
+    asyncio.create_task(fire_online_webhook_with_retry())
+        
+    yield
+
 app = FastAPI(
     title="Eventsnap Inference API",
     description="Local testing server for HF Endpoint Handler",
+    lifespan=lifespan,
 )
 
 # Initialize and attach DI container
