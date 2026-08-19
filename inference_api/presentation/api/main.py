@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
                     response = await client.post(
                         f"{main_api_url.rstrip('/')}/api/webhooks/inference-status",
                         json={"status": "online"},
-                        headers={"X-Webhook-Secret": webhook_secret},
+                        headers={"Authorization": f"Bearer {webhook_secret}"},
                         timeout=5.0
                     )
                     response.raise_for_status()
