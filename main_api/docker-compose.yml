@@ -19,33 +19,12 @@ networks:
     external: true
 
 services:
-  es-rabbitmq:
-    image: rabbitmq:3-management
-    container_name: eventsnap_rabbitmq
-    env_file: *env-file
-    ports:
-      - "15672:15672"
-    volumes:
-      - ./data/rabbitmq/data:/var/lib/rabbitmq
-      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-    networks:
-      - Eventsnap-Network
-
   es-db_migration:
     image: *main-api-image
     container_name: eventsnap_migration
     command: infisical run --env=prod --path=/ --path=/GCP_TOKEN -- alembic upgrade head
     env_file: *env-file
     networks: *networks
-    depends_on:
-      es-rabbitmq:
-        condition: service_healthy
 
   es-main_api:
     image: *main-api-image
@@ -54,8 +33,6 @@ services:
     depends_on:
       es-db_migration:
         condition: service_completed_successfully
-      es-rabbitmq:
-        condition: service_healthy
     restart: unless-stopped
     networks: *networks
 
@@ -66,8 +43,6 @@ services:
     depends_on:
       es-db_migration:
         condition: service_completed_successfully
-      es-rabbitmq:
-        condition: service_healthy
     restart: unless-stopped
     networks: *networks
 
@@ -81,8 +56,6 @@ services:
     depends_on:
       es-db_migration:
         condition: service_completed_successfully
-      es-rabbitmq:
-        condition: service_healthy
     restart: unless-stopped
     networks: *networks
 

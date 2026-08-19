@@ -12,7 +12,6 @@ class Settings(BaseSettings):
             return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
 
-    RABBITMQ_URL: str
     REDIS_URL: str = "redis://redis:6379/0"
 
     STORAGE_ENDPOINT: str
