@@ -1,0 +1,83 @@
+name: eventsnap-backend
+
+x-env-file: &env-file
+  - .env
+
+x-main-api-image: &main-api-image avneesh11905/main_api:latest
+x-inference-api-image: &inference-api-image avneesh11905/inference_api:gpu-latest
+
+networks:
+  Eventsnap-Network:
+    driver: bridge
+
+x-networks: &networks
+  - Eventsnap-Network
+
+services:
+  es-inference-api: 
+    image: *inference-api-image
+    container_name: inference_api
+    restart: unless-stopped
+    env_file: *env-file
+    networks: *networks
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  es-db-migration:
+    image: *main-api-image
+    container_name: eventsnap_migration
+    command: infisical run --env=prod --path=/ -- alembic upgrade head
+    env_file: *env-file
+    networks: *networks
+
+  es-main-api:
+    image: *main-api-image
+    env_file: *env-file
+    depends_on:
+      es-db-migration:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: *networks
+
+  es-celery-worker:
+    image: *main-api-image
+    command: infisical run --env=prod --path=/ -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
+    env_file: *env-file
+    depends_on:
+      es-db-migration:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: *networks
+
+  es-flower:
+    image: *main-api-image
+    container_name: eventsnap_flower
+    command: infisical run --env=prod --path=/ -- celery -A infrastructure.queue.celery_app flower --port=5555
+    env_file: *env-file
+    depends_on:
+      es-db-migration:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks: *networks
+
+  es-nginx:
+    image: jonasal/nginx-certbot:latest
+    container_name: eventsnap_nginx
+    restart: unless-stopped
+    environment:
+      - CERTBOT_EMAIL=admin@aymahajan.in
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/user_conf.d/default.conf:ro
+      - ./letsencrypt:/etc/letsencrypt
+    depends_on:
+      es-main-api:
+        condition: service_started
+    networks: *networks
