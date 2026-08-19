@@ -70,4 +70,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["bash", "-c", "if [ -n \"$INFISICAL_TOKEN\" ]; then infisical run -- gunicorn presentation.api.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --forwarded-allow-ips *; else gunicorn presentation.api.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --forwarded-allow-ips *; fi"]
+CMD ["bash", "-c", "if [ -n \"$INFISICAL_TOKEN\" ]; then infisical run -- gunicorn presentation.api.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --forwarded-allow-ips '*'; else gunicorn presentation.api.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --forwarded-allow-ips '*'; fi"]
