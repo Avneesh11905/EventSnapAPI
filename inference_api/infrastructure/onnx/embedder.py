@@ -128,7 +128,7 @@ class FaceEmbedder:
             return np.empty((0, 512), dtype=np.float32)
 
         # Process in chunks to avoid OOM
-        chunk_size = 32
+        chunk_size = 256
         embeddings_list = []
 
         for i in range(0, len(aligned_faces), chunk_size):
