@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     STORAGE_BUCKET_NAME: str
 
     INFERENCE_API_URL: str
+    WEBHOOK_SECRET: str = "your_super_secret_webhook_password_123"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

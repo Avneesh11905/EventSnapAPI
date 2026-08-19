@@ -8,9 +8,11 @@ dependencies = [
     "dependency-injector>=4.49.1",
     "fastapi>=0.141.1",
     "gunicorn>=21.2.0",
+    "httpx2",
     "numpy>=1.26.0,<2.0.0",
     "onnxruntime-gpu==1.19.2",
     "opencv-python-headless>=4.9.0",
+    "pydantic-settings>=2.15.0",
     "python-multipart>=0.0.32",
     "uvicorn>=0.52.3",
 ]
