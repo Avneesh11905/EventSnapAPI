@@ -40,7 +40,7 @@ services:
   es-db_migration:
     image: *main-api-image
     container_name: eventsnap_migration
-    command: infisical run -- alembic upgrade head
+    command: infisical run --env=prod --path=/ --path=/GCP_TOKEN -- alembic upgrade head
     env_file: *env-file
     networks: *networks
     depends_on:
@@ -61,7 +61,7 @@ services:
 
   es-celery_worker:
     image: *main-api-image
-    command: infisical run -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
+    command: infisical run --env=prod --path=/ --path=/GCP_TOKEN -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
     env_file: *env-file
     depends_on:
       es-db_migration:
