@@ -14,10 +14,23 @@ networks:
     driver: bridge
 
 volumes:
+  rabbitmq_data:
   main_api_venv:
   inference_api_venv:
 
 services:
+  eventsnap_rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: eventsnap_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - Eventsnap-Network
+      
   es-minio:
     image: minio/minio:latest
     container_name: eventsnap_minio
@@ -45,23 +58,6 @@ services:
       - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks: *db-network
-
-  es-redis:
-    image: redis:8.8.0
-    container_name: eventsnap_redis
-    env_file: *env-file
-    volumes:
-      - ./data/redis/data:/data
-      - ./config/redis/redis.acl:/mnt/users.acl:ro
-    command: [ "redis-server", "--port", "${REDIS_PORT:-6379}", "--aclfile", "/mnt/users.acl" ]
-    healthcheck:
-      test: [ "CMD-SHELL", "redis-cli -p ${REDIS_PORT:-6379} ping | grep -E '(PONG|NOAUTH)'" ]
-      start_period: 10s
       interval: 5s
       timeout: 5s
       retries: 5
@@ -122,14 +118,12 @@ services:
     command: >
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
     depends_on:
+      eventsnap_rabbitmq:
+        condition: service_started
       es-postgres:
         condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
-      es-redis:
-        condition: service_healthy
-      es-inference_api:
-        condition: service_started
     restart: unless-stopped
     networks:
       - Eventsnap-Network
@@ -149,10 +143,6 @@ services:
         condition: service_healthy
       es-db_migration:
         condition: service_completed_successfully
-      es-redis:
-        condition: service_healthy
-      es-inference_api:
-        condition: service_started
     restart: unless-stopped
     networks:
       - Eventsnap-Network
