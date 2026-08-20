@@ -63,9 +63,7 @@ class PostgresEventRepository(IEventRepository):
         encoding: List[float],
         threshold: float,
     ) -> List[str]:
-        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(
-            cast(str(encoding), Vector(512))
-        )
+        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(encoding)
 
         stmt = (
             select(
