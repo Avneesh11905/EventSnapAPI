@@ -40,7 +40,11 @@ class MinioStorageService(IStorageService):
         async with session.client(
             "s3",
             endpoint_url=self.endpoint_url,
-            config=Config(signature_version="s3v4"),
+            config=Config(
+                signature_version="s3v4",
+                request_checksum_calculation="when_required",
+                response_checksum_validation="when_required"
+            ),
         ) as s3:
             paginator = s3.get_paginator("list_objects_v2")
             async for page in paginator.paginate(
@@ -64,7 +68,12 @@ class MinioStorageService(IStorageService):
         async with session.client(
             "s3",
             endpoint_url=self.endpoint_url,
-            config=Config(signature_version="s3v4", max_pool_connections=64),
+            config=Config(
+                signature_version="s3v4",
+                max_pool_connections=64,
+                request_checksum_calculation="when_required",
+                response_checksum_validation="when_required"
+            ),
         ) as s3_client:
             response = await s3_client.get_object(Bucket=self.bucket_name, Key=key)
             image_data = await response["Body"].read()
@@ -81,6 +90,8 @@ class MinioStorageService(IStorageService):
             signature_version="s3v4",
             max_pool_connections=10,
             retries={"max_attempts": 0},
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required"
         )
 
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
@@ -129,12 +140,14 @@ class MinioStorageService(IStorageService):
                     progress_callback(total, "UPLOADING", "Uploading ZIP to storage...")
 
                 with open(tmp_path, "rb") as f:
-                    await s3_client.put_object(
-                        Bucket=self.bucket_name,
-                        Key=zip_path,
-                        Body=f,
-                        ContentType="application/zip",
-                    )
+                    file_data = f.read()
+                    
+                await s3_client.put_object(
+                    Bucket=self.bucket_name,
+                    Key=zip_path,
+                    Body=file_data,
+                    ContentType="application/zip",
+                )
 
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
