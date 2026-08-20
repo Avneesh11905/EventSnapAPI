@@ -190,4 +190,13 @@ jobs:
           script: |
             cd /app
             sudo docker compose pull
-            sudo docker compose up -d
+            SCALE_ARGS=""
+            for SERVICE in $(sudo docker compose config --services); do
+                COUNT=$(sudo docker compose ps -q $SERVICE | wc -l)
+                if [ "$COUNT" -gt 1 ]; then
+                    SCALE_ARGS="$SCALE_ARGS --scale $SERVICE=$COUNT"
+                    echo "Preserving scale for $SERVICE: $COUNT replicas"
+                fi
+            done
+            sudo docker compose up -d --force-recreate $SCALE_ARGS
+            sudo docker exec eventsnap_nginx nginx -s reload
