@@ -11,31 +11,30 @@ sequenceDiagram
     actor User as Photographer / Next.js
     participant API as Main API (FastAPI)
     participant RMQ as RabbitMQ (Broker)
-    participant Redis as Redis (Result Backend)
     participant Worker as Celery Worker
-    participant MinIO as MinIO Storage
+    participant Storage Bucket as Storage Bucket Storage
     participant GPU as Inference API (GPU)
-    participant DB as PostgreSQL (pgvector)
+    participant DB as PostgreSQL (Result Backend & pgvector)
 
-    User->>MinIO: 1. Upload ZIP / Photos directly
-    User->>API: 2. POST /api/encode-event/ (event_code)
+    User->>Storage Bucket: 1. Upload ZIP / Photos directly
+    User->>API: 2. POST /api/events/encode-event/ (event_code)
     API->>RMQ: 3. Enqueue Encode Task
     API-->>User: 4. Returns 202 Accepted (task_id)
 
     RMQ->>Worker: 5. Pick up Task
 
     loop Every Batch of Images
-        Worker->>MinIO: 6. Fetch raw photos
-        MinIO-->>Worker: Photos
+        Worker->>Storage Bucket: 6. Fetch raw photos
+        Storage Bucket-->>Worker: Photos
         Worker->>GPU: 7. POST base64 images
         GPU-->>Worker: 8. Return 512D Embeddings & BBoxes
         Worker->>DB: 9. Bulk Insert into pgvector
-        Worker->>Redis: 10. Update Progress State
+        Worker->>DB: 10. Update Progress State
     end
 
     loop Polling
-        User->>API: 11. GET /api/encode-status/{task_id}
-        API->>Redis: Check status
+        User->>API: 11. GET /api/events/encode-status/{task_id}
+        API->>DB: Check status
         API-->>User: Returns Progress (e.g. 45%)
     end
 ```
@@ -52,13 +51,13 @@ participant API as Main API (FastAPI)
 participant GPU as Inference API (GPU)
 participant DB as PostgreSQL (pgvector)
 
-Attendee->>API: 1. POST /api/encode-attendee/ (3 selfies)
+Attendee->>API: 1. POST /api/attendees/encode-attendee/ (3 selfies)
 Note over API: Image Augmentation<br/>(Flips, Rotation, Contrast)
 API->>GPU: 2. POST 9 augmented base64 images
 GPU-->>API: 3. Return 9 precise embeddings
 API-->>Attendee: 4. Returns embeddings array
 
-Attendee->>API: 5. POST /api/sort-attendee/ (event_code, embeddings)
+Attendee->>API: 5. POST /api/attendees/sort-attendee/ (event_code, embeddings)
 Note over API: Averages the 9 embeddings<br/>into 1 highly accurate vector
 API->>DB: 6. pgvector K-NN Cosine Similarity (<=>)
 DB-->>API: 7. Returns Matched Image URLs
@@ -76,21 +75,21 @@ actor Attendee as Attendee / Next.js
 participant API as Main API (FastAPI)
 participant RMQ as RabbitMQ (Broker)
 participant Worker as Celery Worker
-participant MinIO as MinIO Storage
+participant Storage Bucket as Storage Bucket Storage
 
-Attendee->>API: 1. POST /api/generate-zip/ (event_id, user_id, photos)
+Attendee->>API: 1. POST /api/attendees/generate-zip/ (event_id, user_id, photos)
 API->>RMQ: 2. Enqueue Zip Task
 API-->>Attendee: 3. Returns 202 Accepted (task_id)
 
 RMQ->>Worker: 4. Pick up Task
-Worker->>MinIO: 5. Fetch all matched photos
-MinIO-->>Worker: Photos
+Worker->>Storage Bucket: 5. Fetch all matched photos
+Storage Bucket-->>Worker: Photos
 Note over Worker: Compresses into .zip
-Worker->>MinIO: 6. Upload .zip file
+Worker->>Storage Bucket: 6. Upload .zip file
 
 loop Polling
-    Attendee->>API: 7. GET /api/check-zip/{event_id}/{user_id}
-    API->>MinIO: Check if ZIP exists
+    Attendee->>API: 7. GET /api/attendees/check-zip/{event_id}/{user_id}
+    API->>Storage Bucket: Check if ZIP exists
     API-->>Attendee: Returns true/false & Download URL
 end
 ```

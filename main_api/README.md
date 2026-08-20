@@ -15,7 +15,7 @@ This API strictly follows the **Ports and Adapters (Hexagonal) Architecture** us
 
 *   **`domain/`**: Enterprise logic, entities, and domain exceptions. Completely independent of any external frameworks.
 *   **`application/`**: Business use cases (e.g., `events.py`, `attendees.py`, `background_tasks.py`), DTOs, and Ports (interfaces).
-*   **`infrastructure/`**: External adapters (Celery, PostgreSQL/pgvector, MinIO, HuggingFace Inference API, Image Augmentation).
+*   **`infrastructure/`**: External adapters (Celery, PostgreSQL/pgvector, Storage Bucket, Internal Inference API, Image Augmentation).
 *   **`presentation/`**: FastAPI routers, schemas, and exception handlers.
 
 ---
@@ -28,7 +28,7 @@ Content-Type: application/json
 ```
 
 ### 1. Encode Event (Asynchronous)
-Triggers the background Celery worker to download a folder from MinIO, process every image through the GPU inference API, and save the 512-dimension vector embeddings to Postgres.
+Triggers the background Celery worker to download a folder from Storage Bucket, process every image through the GPU inference API, and save the 512-dimension vector embeddings to Postgres.
 
 **Example `curl` Request:**
 ```bash
@@ -38,8 +38,8 @@ curl -X 'POST' \
   -d '{
   "event_code": "DCAYTI",
   "max_faces": 0,
-  "det_conf": 0.5,
-  "nms_thresh": 0.4
+  "detection_conf": 0.5,
+  "nms_threshold": 0.4
 }'
 ```
 
@@ -50,8 +50,8 @@ import axios from 'axios';
 const response = await axios.post('http://localhost:8000/api/events/encode-event/', {
   event_code: 'DCAYTI',
   max_faces: 0,
-  det_conf: 0.5,
-  nms_thresh: 0.4
+  detection_conf: 0.5,
+  nms_threshold: 0.4
 }, {
   headers: {
     'Content-Type': 'application/json'
@@ -197,6 +197,58 @@ console.log(response.data);
     "events/DCAYTI/DSC_001.jpg",
     "events/DCAYTI/DSC_045.jpg"
   ]
+}
+```
+
+### 5. Generate ZIP
+Generates a ZIP archive containing the matched photos for an attendee.
+
+**Example Request:**
+```json
+{
+  "event_id": "uuid",
+  "user_id": "uuid",
+  "image_paths": [{}]
+}
+```
+**Response:**
+```json
+{
+  "success": true,
+  "task_id": "task-uuid",
+  "message": "message"
+}
+```
+
+### 6. Check ZIP Status
+Checks if a generated zip is available in the storage bucket.
+
+**Example Request:**
+```bash
+curl -X 'GET' 'http://localhost:8000/api/attendees/check-zip/{event_id}/{user_id}'
+```
+**Response:**
+```json
+{
+  "exists": true,
+  "zip_path": "zip/event_id/user_id.zip",
+  "filename": "user_id.zip"
+}
+```
+
+### 7. Delete Event Table
+Safely clears event table from DB and ML storage in the background.
+
+**Example Request:**
+```bash
+curl -X 'DELETE' 'http://localhost:8000/api/events/delete-event-table/{event_code}'
+```
+**Response:**
+```json
+{
+  "success": true,
+  "message": "message",
+  "table_name": "event_encodings"
 }
 ```
 

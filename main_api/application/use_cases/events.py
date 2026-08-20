@@ -41,14 +41,14 @@ class GetEncodedCountUseCase:
 
 
 class DeleteEventTableUseCase:
-    def __init__(self, uow: IUnitOfWork):
-        self.uow = uow
+    def __init__(self, queue_service: ITaskQueueService):
+        self.queue_service = queue_service
 
-    async def execute(self, event_code: str) -> DeleteTableDTO:
-        async with self.uow as uow:
-            await uow.event_repo.delete_event_data(event_code)
-            await uow.commit()
+    async def execute(
+        self, event_code: str, event_id: str | None = None
+    ) -> DeleteTableDTO:
+        self.queue_service.enqueue_delete_event(event_code, event_id)
         return DeleteTableDTO(
             success=True,
-            message=f"Data for event '{event_code}' deleted successfully if it existed.",
+            message=f"Enqueued deletion task for event '{event_code}'.",
         )
