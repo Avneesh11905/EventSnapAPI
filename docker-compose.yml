@@ -79,7 +79,7 @@ services:
   es-flower:
     image: *main-api-image
     container_name: es-flower
-    command: celery -A infrastructure.queue.celery_app flower --port=5555
+    command: bash -c "celery -A infrastructure.queue.celery_app flower --port=5555 --broker_api=http://$RABBITMQ_DEFAULT_USER:$RABBITMQ_DEFAULT_PASS@es-rabbitmq:15672/api/"
     env_file: *env-file
     depends_on:
       es-rabbitmq:
