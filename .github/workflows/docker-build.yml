@@ -147,6 +147,23 @@ jobs:
       (needs.build-and-push-inference-gpu.result != 'failure' && needs.build-and-push-inference-gpu.result != 'cancelled')
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Prepare Nginx config for VM
+        run: |
+          mkdir -p nginx
+          cp config/nginx/nginx.conf nginx/nginx.conf
+
+      - name: Copy Compose and Nginx files to VM
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: github-actions
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml,nginx/nginx.conf"
+          target: "/app"
+
       - name: Deploy to Google Cloud VM
         uses: appleboy/ssh-action@v1.0.3
         with:
