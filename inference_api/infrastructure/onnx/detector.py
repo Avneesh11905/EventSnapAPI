@@ -50,6 +50,7 @@ class FaceDetector:
 
         providers = get_providers(device)
         sess_opts = ort.SessionOptions()
+        sess_opts.log_severity_level = 3
         sess_opts.add_session_config_entry(
             "session.memory.enable_memory_arena_shrinkage", "gpu:0"
         )
