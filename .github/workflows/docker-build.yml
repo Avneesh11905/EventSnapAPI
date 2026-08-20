@@ -150,6 +150,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Generate .env from Infisical
+        run: |
+          curl -1sLf 'https://artifacts-cli.infisical.com/setup.deb.sh' | sudo -E bash
+          sudo apt-get install -y infisical
+          export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="${{ secrets.INFISICAL_MACHINE_IDENTITY_CLIENT_ID }}" --client-secret="${{ secrets.INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET }}" --plain --silent)
+          infisical export --projectId="${{ secrets.INFISICAL_PROJECT_ID }}" --env=prod --format=dotenv > .env
+
       - name: Prepare Nginx config for VM
         run: |
           mkdir -p nginx
@@ -161,7 +168,7 @@ jobs:
           host: ${{ secrets.GCP_VM_IP }}
           username: github-actions
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/nginx.conf"
+          source: "docker-compose.yml,nginx/nginx.conf,.env"
           target: "/app"
 
       - name: Deploy to Google Cloud VM
