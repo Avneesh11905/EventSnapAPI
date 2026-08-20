@@ -67,7 +67,8 @@ class CeleryTaskQueueService(ITaskQueueService):
                         "Task failed, but the result/exception could not be parsed."
                     )
         else:
-            if isinstance(res.info, dict):
-                response.update(res.info)
+            info = res.info
+            if isinstance(info, dict):
+                response.update(info)
 
         return response
