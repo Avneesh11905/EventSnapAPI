@@ -19,9 +19,9 @@ volumes:
   inference_api_venv:
 
 services:
-  eventsnap_rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: eventsnap_rabbitmq
+  es-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: es-rabbitmq
     restart: unless-stopped
     env_file: *env-file
     ports:
@@ -29,6 +29,7 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     networks:
       - Eventsnap-Network
       
@@ -119,7 +120,7 @@ services:
     command: >
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
     depends_on:
-      eventsnap_rabbitmq:
+      es-rabbitmq:
         condition: service_started
       es-postgres:
         condition: service_healthy

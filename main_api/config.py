@@ -12,7 +12,7 @@ class Settings(BaseSettings):
             return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
 
-    RABBITMQ_URL: str = "amqp://guest:guest@eventsnap_rabbitmq:5672/"
+    RABBITMQ_URL: str = "amqp://guest:guest@es-rabbitmq:5672/"
 
     @property
     def CELERY_RESULT_BACKEND(self) -> str:
