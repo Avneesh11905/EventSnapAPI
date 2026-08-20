@@ -145,26 +145,56 @@ class ProcessEventEncodingUseCase:
         )
 
         batch_size = 64
+        task_ids = []
         for i in range(0, total_images, batch_size):
             chunk = new_raw_keys[i : i + batch_size]
-            self.queue_service.enqueue_encode_batch(
+            tid = self.queue_service.enqueue_encode_batch(
                 event_code=event_code,
                 keys=chunk,
                 max_faces=max_faces,
                 detection_conf=det_conf,
                 nms_threshold=nms_thresh,
             )
+            task_ids.append(tid)
+
+        import asyncio
+        completed_tasks = set()
+        while len(completed_tasks) < len(task_ids):
+            for tid in task_ids:
+                if tid not in completed_tasks:
+                    status = self.queue_service.get_task_status(tid)
+                    if status.get("status") in ("SUCCESS", "FAILURE"):
+                        completed_tasks.add(tid)
+
+            processed_batches = len(completed_tasks)
+            processed_images = min(processed_batches * batch_size, total_images)
+            pct = int((processed_images / total_images) * 100) if total_images > 0 else 100
+            
+            update_state_cb(
+                "PROCESSING",
+                {
+                    "progress": pct,
+                    "processed": processed_images,
+                    "total": total_images,
+                    "skipped": skipped,
+                    "status_msg": f"Processing {processed_images}/{total_images} images...",
+                },
+            )
+            await asyncio.sleep(2)
 
         update_state_cb(
-            "COMPLETED",
+            "PROCESSING",
             {
                 "progress": 100,
-                "status_msg": f"Dispatched {total_images} new images to processing queue.",
+                "processed": total_images,
+                "total": total_images,
+                "skipped": skipped,
+                "status_msg": f"Finished processing {total_images} images.",
             },
         )
 
         return BackgroundEncodingResult(
-            result=f"Dispatched {total_images} images to cluster.",
+            result=f"Successfully processed {total_images} images.",
             total=len(all_thumb_keys),
             skipped=skipped,
         )
