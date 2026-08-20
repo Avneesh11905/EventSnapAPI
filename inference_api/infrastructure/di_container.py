@@ -15,7 +15,7 @@ class Container(containers.DeclarativeContainer):
     face_detector = providers.Singleton(
         FaceDetector,
         model_path="models/buffalo_l/det_10g.onnx",
-        input_size=(1920, 1920),
+        input_size=(1024, 1024),
         device="cuda",
         num_threads=1,
     )
