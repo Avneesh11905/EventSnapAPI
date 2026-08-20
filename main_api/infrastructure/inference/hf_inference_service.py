@@ -24,7 +24,7 @@ class HFInferenceService(IInferenceService):
             },
         }
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=None) as client:
             response = await client.post(
                 f"{self.api_url}/", json=payload, headers=headers
             )
