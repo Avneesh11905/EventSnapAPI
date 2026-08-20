@@ -3,8 +3,8 @@ from config import settings
 
 celery_app = Celery(
     "eventsnap_tasks",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=settings.RABBITMQ_URL,
+    backend=settings.CELERY_RESULT_BACKEND,
     include=["infrastructure.queue.celery_workers"],
 )
 

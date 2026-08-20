@@ -59,14 +59,14 @@ async def health_check():
         health_response.status = "degraded"
         health_response.checks["postgres"] = f"error: {str(e)}"
 
-    # Check Redis (Celery Broker)
+    # Check RabbitMQ (Celery Broker)
     try:
         with celery_app.connection() as conn:
             conn.ensure_connection(max_retries=1, timeout=2)
-        health_response.checks["redis"] = "ok"
+        health_response.checks["rabbitmq"] = "ok"
     except Exception as e:
         health_response.status = "degraded"
-        health_response.checks["redis"] = f"error: {str(e)}"
+        health_response.checks["rabbitmq"] = f"error: {str(e)}"
 
     return health_response
 

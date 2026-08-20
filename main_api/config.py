@@ -12,7 +12,15 @@ class Settings(BaseSettings):
             return v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
 
-    REDIS_URL: str = "redis://redis:6379/0"
+    RABBITMQ_URL: str = "amqp://guest:guest@eventsnap_rabbitmq:5672/"
+
+    @property
+    def CELERY_RESULT_BACKEND(self) -> str:
+        # Celery requires a synchronous driver (psycopg2) for the result backend
+        sync_url = self.DATABASE_URL.replace("+asyncpg", "")
+        # psycopg2 expects sslmode=require, whereas asyncpg expects ssl=require
+        sync_url = sync_url.replace("ssl=require", "sslmode=require")
+        return f"db+{sync_url}"
 
     STORAGE_ENDPOINT: str
     STORAGE_ACCESS_KEY: str

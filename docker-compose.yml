@@ -14,9 +14,20 @@ networks:
     driver: bridge
 
 volumes:
+  rabbitmq_data:
   certbot_certs:
 
 services:
+  eventsnap_rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: eventsnap_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: *networks
   es-inference-api: 
     image: *inference-api-image
     container_name: inference_api
@@ -42,6 +53,8 @@ services:
     image: *main-api-image
     env_file: *env-file
     depends_on:
+      eventsnap_rabbitmq:
+        condition: service_started
       es-db-migration:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -52,6 +65,8 @@ services:
     command: bash -c 'export INFISICAL_TOKEN=$$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent) && infisical run --projectId "$$INFISICAL_PROJECT_ID" --env=prod --path=/ -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4'
     env_file: *env-file
     depends_on:
+      eventsnap_rabbitmq:
+        condition: service_started
       es-db-migration:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -63,6 +78,8 @@ services:
     command: bash -c 'export INFISICAL_TOKEN=$$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent) && infisical run --projectId "$$INFISICAL_PROJECT_ID" --env=prod --path=/ -- celery -A infrastructure.queue.celery_app flower --port=5555'
     env_file: *env-file
     depends_on:
+      eventsnap_rabbitmq:
+        condition: service_started
       es-db-migration:
         condition: service_completed_successfully
     restart: unless-stopped
