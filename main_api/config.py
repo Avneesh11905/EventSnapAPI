@@ -29,8 +29,9 @@ class Settings(BaseSettings):
 
     INFERENCE_API_URL: str
 
-    SIMILARITY_THRESHOLD: float = 0.55
-    MIN_MATCHES: int = 2
+    SIMILARITY_THRESHOLD: float = 0.45
+    INFERENCE_BATCH_SIZE: int = 64
+    S3_MAX_POOL_CONNECTIONS: int = 64
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

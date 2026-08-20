@@ -1,3 +1,4 @@
+from config import settings
 from application.ports.storage import IStorageService
 import asyncio
 from aioboto3 import Session
@@ -70,7 +71,7 @@ class MinioStorageService(IStorageService):
             endpoint_url=self.endpoint_url,
             config=Config(
                 signature_version="s3v4",
-                max_pool_connections=64,
+                max_pool_connections=settings.S3_MAX_POOL_CONNECTIONS,
                 request_checksum_calculation="when_required",
                 response_checksum_validation="when_required"
             ),
@@ -88,7 +89,7 @@ class MinioStorageService(IStorageService):
         total = len(image_paths)
         s3_config = Config(
             signature_version="s3v4",
-            max_pool_connections=10,
+            max_pool_connections=settings.S3_MAX_POOL_CONNECTIONS,
             retries={"max_attempts": 0},
             request_checksum_calculation="when_required",
             response_checksum_validation="when_required"
