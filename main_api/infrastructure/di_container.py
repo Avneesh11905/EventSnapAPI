@@ -3,7 +3,7 @@ from application.use_cases.events import (
     StartEventEncodingUseCase,
     CheckEncodingStatusUseCase,
     GetEncodedCountUseCase,
-    DeleteEventTableUseCase,
+    DeleteEventDataUseCase,
 )
 from application.use_cases.attendees import (
     EncodeAttendeeUseCase,
@@ -84,8 +84,8 @@ class Container(containers.DeclarativeContainer):
 
     get_encoded_count_use_case = providers.Factory(GetEncodedCountUseCase, uow=uow)
 
-    delete_event_table_use_case = providers.Factory(
-        DeleteEventTableUseCase, queue_service=queue_service
+    delete_event_data_use_case = providers.Factory(
+        DeleteEventDataUseCase, queue_service=queue_service
     )
 
     encode_attendee_use_case = providers.Factory(

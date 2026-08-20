@@ -5,14 +5,14 @@ from application.use_cases.events import (
     StartEventEncodingUseCase,
     CheckEncodingStatusUseCase,
     GetEncodedCountUseCase,
-    DeleteEventTableUseCase,
+    DeleteEventDataUseCase,
 )
 from presentation.api.schemas import (
     EncodeEventRequest,
     EnqueueTaskResponse,
     EncodingStatusResponse,
     EncodedCountResponse,
-    DeleteTableResponse,
+    DeleteDataResponse,
 )
 import asyncio
 import dataclasses
@@ -86,14 +86,14 @@ async def get_encoded_image_count(
     return EncodedCountResponse(**dataclasses.asdict(dto))
 
 
-@router.delete("/delete-event-table/{event_code}", response_model=DeleteTableResponse)
+@router.delete("/delete-event-data/{event_code}", response_model=DeleteDataResponse)
 @inject
-async def delete_event_table(
+async def delete_event_data(
     event_code: str,
     event_id: str | None = None,
-    use_case: DeleteEventTableUseCase = Depends(
-        Provide[Container.delete_event_table_use_case]
+    use_case: DeleteEventDataUseCase = Depends(
+        Provide[Container.delete_event_data_use_case]
     ),
 ):
     dto = await use_case.execute(event_code, event_id)
-    return DeleteTableResponse(**dataclasses.asdict(dto))
+    return DeleteDataResponse(**dataclasses.asdict(dto))

@@ -158,7 +158,8 @@ class ProcessEventEncodingUseCase:
             task_ids.append(tid)
 
         import asyncio
-        completed_tasks = set()
+
+        completed_tasks: set[str] = set()
         while len(completed_tasks) < len(task_ids):
             for tid in task_ids:
                 if tid not in completed_tasks:
@@ -168,8 +169,12 @@ class ProcessEventEncodingUseCase:
 
             processed_batches = len(completed_tasks)
             processed_images = min(processed_batches * batch_size, total_images)
-            pct = int((processed_images / total_images) * 100) if total_images > 0 else 100
-            
+            pct = (
+                int((processed_images / total_images) * 100)
+                if total_images > 0
+                else 100
+            )
+
             update_state_cb(
                 "PROCESSING",
                 {
