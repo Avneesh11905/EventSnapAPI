@@ -34,7 +34,7 @@ services:
   es-db-migration:
     image: *main-api-image
     container_name: eventsnap_migration
-    command: infisical run --env=prod --path=/ -- alembic upgrade head
+    command: bash -c 'export INFISICAL_TOKEN=$$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent) && infisical run --projectId "$$INFISICAL_PROJECT_ID" --env=prod --path=/ -- alembic upgrade head'
     env_file: *env-file
     networks: *networks
 
@@ -49,7 +49,7 @@ services:
 
   es-celery-worker:
     image: *main-api-image
-    command: infisical run --env=prod --path=/ -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
+    command: bash -c 'export INFISICAL_TOKEN=$$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent) && infisical run --projectId "$$INFISICAL_PROJECT_ID" --env=prod --path=/ -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4'
     env_file: *env-file
     depends_on:
       es-db-migration:
@@ -60,7 +60,7 @@ services:
   es-flower:
     image: *main-api-image
     container_name: eventsnap_flower
-    command: infisical run --env=prod --path=/ -- celery -A infrastructure.queue.celery_app flower --port=5555
+    command: bash -c 'export INFISICAL_TOKEN=$$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent) && infisical run --projectId "$$INFISICAL_PROJECT_ID" --env=prod --path=/ -- celery -A infrastructure.queue.celery_app flower --port=5555'
     env_file: *env-file
     depends_on:
       es-db-migration:
@@ -78,7 +78,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/user_conf.d/default.conf:ro
+      - ./config/nginx/nginx.conf:/etc/nginx/user_conf.d/default.conf:ro
       - certbot_certs:/etc/letsencrypt
     depends_on:
       es-main-api:
