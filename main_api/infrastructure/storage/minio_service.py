@@ -30,6 +30,7 @@ class MinioStorageService(IStorageService):
         return Session(
             aws_access_key_id=self.access_key,
             aws_secret_access_key=self.secret_key,
+            region_name="auto",
         )
 
     async def list_images(self, folder_path: str) -> List[str]:
