@@ -6,17 +6,6 @@ def get_providers(device: str) -> list:
     if device == "cuda":
         available = ort.get_available_providers()
         providers: list[str | tuple[str, dict[str, object]]] = []
-        if "TensorrtExecutionProvider" in available:
-            providers.append(
-                (
-                    "TensorrtExecutionProvider",
-                    {
-                        "trt_engine_cache_enable": True,
-                        "trt_engine_cache_path": "./trt_cache",
-                        "trt_fp16_enable": True,
-                    },
-                )
-            )
         if "CUDAExecutionProvider" in available:
             providers.append(
                 (
