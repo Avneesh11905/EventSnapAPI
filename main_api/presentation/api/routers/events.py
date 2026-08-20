@@ -90,9 +90,10 @@ async def get_encoded_image_count(
 @inject
 async def delete_event_table(
     event_code: str,
+    event_id: str | None = None,
     use_case: DeleteEventTableUseCase = Depends(
         Provide[Container.delete_event_table_use_case]
     ),
 ):
-    dto = await use_case.execute(event_code)
+    dto = await use_case.execute(event_code, event_id)
     return DeleteTableResponse(**dataclasses.asdict(dto))

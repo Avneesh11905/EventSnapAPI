@@ -142,3 +142,20 @@ class MinioStorageService(IStorageService):
                 return True
             except Exception:
                 return False
+
+    async def delete_folder(self, prefix: str) -> None:
+        session = self._get_session()
+        async with session.client("s3", endpoint_url=self.endpoint_url) as s3:
+            paginator = s3.get_paginator("list_objects_v2")
+            async for page in paginator.paginate(
+                Bucket=self.bucket_name, Prefix=prefix
+            ):
+                if "Contents" in page:
+                    objects_to_delete = [
+                        {"Key": obj["Key"]} for obj in page["Contents"]
+                    ]
+                    if objects_to_delete:
+                        await s3.delete_objects(
+                            Bucket=self.bucket_name,
+                            Delete={"Objects": objects_to_delete, "Quiet": True},
+                        )

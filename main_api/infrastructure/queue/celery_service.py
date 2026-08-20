@@ -42,6 +42,12 @@ class CeleryTaskQueueService(ITaskQueueService):
         task = create_event_zip_task.delay(event_id, user_id, image_paths)
         return task.id
 
+    def enqueue_delete_event(self, event_code: str, event_id: str | None = None) -> str:
+        from infrastructure.queue.celery_workers import delete_event_data_task
+
+        task = delete_event_data_task.delay(event_code, event_id)
+        return task.id
+
     def get_task_status(self, task_id: str) -> Dict[str, Any]:
         res = AsyncResult(task_id, app=celery_app)
 

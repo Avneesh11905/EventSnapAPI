@@ -19,3 +19,6 @@ class IStorageService(Protocol):
 
     async def check_zip_exists(self, zip_key: str) -> bool:
         pass
+
+    async def delete_folder(self, prefix: str) -> None:
+        pass

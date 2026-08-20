@@ -2,7 +2,7 @@
 
 The `inference_api` is an ultra-fast, stateless FastAPI server designed purely for mathematical facial processing. It uses the `insightface` library powered by `onnxruntime-gpu` (CUDA 11) to extract 512-dimension vector embeddings from raw image data.
 
-It is designed to be horizontally scaled or deployed as a Serverless Endpoint on Hugging Face (e.g., Nvidia T4 hardware).
+It is designed to be horizontally scaled or deployed on a GCP VM (e.g., Nvidia T4 hardware).
 
 ## Core Responsibilities
 *   **Vectorization**: Converts human faces into mathematical matrices (ResNet100 model).

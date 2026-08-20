@@ -84,7 +84,9 @@ class Container(containers.DeclarativeContainer):
 
     get_encoded_count_use_case = providers.Factory(GetEncodedCountUseCase, uow=uow)
 
-    delete_event_table_use_case = providers.Factory(DeleteEventTableUseCase, uow=uow)
+    delete_event_table_use_case = providers.Factory(
+        DeleteEventTableUseCase, queue_service=queue_service
+    )
 
     encode_attendee_use_case = providers.Factory(
         EncodeAttendeeUseCase,

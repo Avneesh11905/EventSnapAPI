@@ -32,3 +32,7 @@ class ITaskQueueService(Protocol):
     def get_task_status(self, task_id: str) -> Dict[str, Any]:
         """Returns dict with state, info, result"""
         pass
+
+    def enqueue_delete_event(self, event_code: str, event_id: str | None = None) -> str:
+        """Returns the task ID"""
+        pass

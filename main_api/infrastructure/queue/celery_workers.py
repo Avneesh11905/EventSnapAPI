@@ -88,3 +88,21 @@ def create_event_zip_task(self, event_id: str, user_id: str, image_paths: list[d
     if dataclasses.is_dataclass(result):
         return dataclasses.asdict(result)
     return result
+
+
+@shared_task(bind=True, name="delete_event_data_task", acks_late=True)
+def delete_event_data_task(self, event_code: str, event_id: str | None = None):
+    container = get_container()
+    uow = container.uow()
+    storage = container.storage_service()
+
+    async def _delete():
+        async with uow:
+            await uow.event_repo.delete_event_data(event_code)
+            await uow.commit()
+        await storage.delete_folder(f"event/{event_code}/")
+        if event_id:
+            await storage.delete_folder(f"zip/{event_id}/")
+
+    asyncio.run(_delete())
+    return {"success": True, "message": f"Deleted event {event_code}"}
