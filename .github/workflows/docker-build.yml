@@ -159,8 +159,7 @@ jobs:
 
       - name: Prepare configs for VM
         run: |
-          mkdir -p nginx rabbitmq
-          cp config/nginx/nginx.conf nginx/nginx.conf
+          mkdir -p rabbitmq
           cp config/rabbitmq/rabbitmq.conf rabbitmq/rabbitmq.conf
 
       - name: Fix permissions on GCP VM before SCP
@@ -179,7 +178,7 @@ jobs:
           host: ${{ secrets.GCP_VM_IP }}
           username: github-actions
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/nginx.conf,rabbitmq/rabbitmq.conf,.env"
+          source: "docker-compose.yml,rabbitmq/rabbitmq.conf,.env"
           target: "/app"
 
       - name: Deploy to Google Cloud VM
