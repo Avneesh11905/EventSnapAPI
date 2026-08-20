@@ -6,12 +6,15 @@ x-env-file: &env-file
 x-main-api-image: &main-api-image avneesh11905/main_api:latest
 x-inference-api-image: &inference-api-image avneesh11905/inference_api:gpu-latest
 
+x-networks: &networks
+  - Eventsnap-Network
+
 networks:
   Eventsnap-Network:
     driver: bridge
 
-x-networks: &networks
-  - Eventsnap-Network
+volumes:
+  certbot_certs:
 
 services:
   es-inference-api: 
@@ -76,7 +79,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/user_conf.d/default.conf:ro
-      - ./letsencrypt:/etc/letsencrypt
+      - certbot_certs:/etc/letsencrypt
     depends_on:
       es-main-api:
         condition: service_started
