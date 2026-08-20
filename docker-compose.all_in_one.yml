@@ -77,7 +77,7 @@ services:
       - ./inference_api:/app
       - inference_api_venv:/app/.venv
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; fi'
+      bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; fi'
     ports:
       - "5000:5000"
     env_file: *env-file
@@ -101,7 +101,7 @@ services:
       - ./main_api:/app
       - main_api_venv:/app/.venv
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- alembic upgrade head; else alembic upgrade head; fi'
+      bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" -- alembic upgrade head; else alembic upgrade head; fi'
     env_file: *env-file
     depends_on:
       es-postgres:
@@ -120,7 +120,7 @@ services:
       - "8000:8000"
     env_file: *env-file
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
+      bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
     depends_on:
       es-postgres:
         condition: service_healthy
@@ -142,7 +142,7 @@ services:
       - ./main_api:/app
       - main_api_venv:/app/.venv
     command: >
-      bash -c 'if [ -n "$$INFISICAL_TOKEN" ] || [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] || [ -n "$$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" ]; then infisical run -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
+      bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
     env_file: *env-file
     depends_on:
       es-postgres:
