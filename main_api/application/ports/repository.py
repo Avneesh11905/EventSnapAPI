@@ -1,4 +1,4 @@
-from typing import List, Set, Dict, Any, Protocol
+from typing import List, Set, Protocol
 from application.dtos import EventEncodingDTO
 
 
@@ -21,13 +21,7 @@ class IEventRepository(Protocol):
     async def find_matches(
         self,
         event_code: str,
-        encodings: List[List[float]],
+        encoding: List[float],
         threshold: float,
-        min_matches: int,
     ) -> List[str]:
-        pass
-
-    async def get_closest_matches_debug(
-        self, event_code: str, encodings: List[List[float]], limit: int = 5
-    ) -> List[Dict[str, Any]]:
         pass

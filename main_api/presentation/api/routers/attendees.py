@@ -29,10 +29,10 @@ async def encode_attendee(
         Provide[Container.encode_attendee_use_case]
     ),
 ):
-    embeddings_list = await use_case.execute(request.attendee_images_base64)
+    encoding = await use_case.execute(request.attendee_images_base64)
     return EncodeAttendeeResponse(
-        message=f"Successfully generated {len(embeddings_list)} encodings from 3 reference images.",
-        encodings=embeddings_list,
+        message="Successfully generated 1 averaged encoding from 3 reference images.",
+        encoding=encoding,
     )
 
 
@@ -42,7 +42,7 @@ async def sort_event_attendee(
     request: SortAttendeeRequest,
     use_case: SortAttendeeUseCase = Depends(Provide[Container.sort_attendee_use_case]),
 ):
-    dto = await use_case.execute(request.event_code, request.attendee_encodings)
+    dto = await use_case.execute(request.event_code, request.attendee_encoding)
     return AttendeeSortResponse(**dataclasses.asdict(dto))
 
 

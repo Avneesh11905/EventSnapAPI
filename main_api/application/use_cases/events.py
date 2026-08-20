@@ -1,6 +1,6 @@
 from application.ports.queue import ITaskQueueService
 from application.ports.uow import IUnitOfWork
-from application.dtos import EncodedCountDTO, DeleteTableDTO
+from application.dtos import EncodedCountDTO, DeleteDataDTO
 
 
 class StartEventEncodingUseCase:
@@ -40,15 +40,15 @@ class GetEncodedCountUseCase:
             return EncodedCountDTO(encoded_count=count, table_exists=True)
 
 
-class DeleteEventTableUseCase:
+class DeleteEventDataUseCase:
     def __init__(self, queue_service: ITaskQueueService):
         self.queue_service = queue_service
 
     async def execute(
         self, event_code: str, event_id: str | None = None
-    ) -> DeleteTableDTO:
+    ) -> DeleteDataDTO:
         self.queue_service.enqueue_delete_event(event_code, event_id)
-        return DeleteTableDTO(
+        return DeleteDataDTO(
             success=True,
             message=f"Enqueued deletion task for event '{event_code}'.",
         )

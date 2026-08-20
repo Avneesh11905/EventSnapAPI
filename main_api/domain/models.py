@@ -16,10 +16,5 @@ class MatchResult:
 
 
 @dataclass
-class AttendeeProfile:
-    encodings: List[List[float]]
-
-
-@dataclass
 class Event:
     folder_path: str

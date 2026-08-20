@@ -29,7 +29,7 @@ class EncodedCountDTO:
 
 
 @dataclass
-class DeleteTableDTO:
+class DeleteDataDTO:
     success: bool
     message: Optional[str] = None
     table_name: Optional[str] = None

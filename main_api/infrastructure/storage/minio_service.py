@@ -76,7 +76,11 @@ class MinioStorageService(IStorageService):
     ) -> None:
         session = self._get_session()
         total = len(image_paths)
-        s3_config = Config(signature_version="s3v4", max_pool_connections=10, retries={"max_attempts": 0})
+        s3_config = Config(
+            signature_version="s3v4",
+            max_pool_connections=10,
+            retries={"max_attempts": 0},
+        )
 
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
             tmp_path = tmp.name

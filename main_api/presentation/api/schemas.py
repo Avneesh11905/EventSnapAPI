@@ -17,7 +17,7 @@ class EncodeAttendeeRequest(BaseModel):
 
 class SortAttendeeRequest(BaseModel):
     event_code: str
-    attendee_encodings: List[List[float]]
+    attendee_encoding: List[float]
 
 
 class GenerateZipRequest(BaseModel):
@@ -43,7 +43,7 @@ class EnqueueTaskResponse(BaseModel):
 
 class EncodeAttendeeResponse(BaseModel):
     message: str
-    encodings: List[List[float]]
+    encoding: List[float]
 
 
 class GenerateZipResponse(BaseModel):
@@ -66,7 +66,7 @@ class EncodedCountResponse(BaseModel):
     table_exists: bool
 
 
-class DeleteTableResponse(BaseModel):
+class DeleteDataResponse(BaseModel):
     success: bool
     message: Optional[str] = None
     table_name: Optional[str] = None

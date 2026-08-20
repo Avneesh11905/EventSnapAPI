@@ -1,3 +1,4 @@
+import numpy as np
 from typing import List
 import asyncio
 from application.ports.inference import IInferenceService
@@ -21,7 +22,7 @@ class EncodeAttendeeUseCase:
         self.inference_service = inference_service
         self.augmenter = augmenter
 
-    async def execute(self, attendee_images_base64: List[str]) -> List[List[float]]:
+    async def execute(self, attendee_images_base64: List[str]) -> List[float]:
         if len(attendee_images_base64) != 3:
             raise InvalidReferenceImagesError(
                 "Must provide exactly 3 attendee images (front, left, right)."
@@ -43,7 +44,8 @@ class EncodeAttendeeUseCase:
                 "Could not detect clear faces in the provided and augmented reference images."
             )
 
-        return embeddings_list
+        avg_embedding = np.mean(embeddings_list, axis=0).tolist()
+        return avg_embedding
 
 
 class SortAttendeeUseCase:
@@ -51,12 +53,10 @@ class SortAttendeeUseCase:
         self.uow = uow
 
     async def execute(
-        self, event_code: str, attendee_encodings: List[List[float]]
+        self, event_code: str, attendee_encoding: List[float]
     ) -> AttendeeSortDTO:
-        if len(attendee_encodings) == 0:
-            raise InvalidReferenceImagesError(
-                "Must provide at least one attendee encoding."
-            )
+        if not attendee_encoding:
+            raise InvalidReferenceImagesError("Must provide a valid attendee encoding.")
 
         async with self.uow as uow:
             has_data = await uow.event_repo.check_event_has_data(event_code)
@@ -67,9 +67,8 @@ class SortAttendeeUseCase:
 
             matched_paths = await uow.event_repo.find_matches(
                 event_code,
-                attendee_encodings,
+                attendee_encoding,
                 settings.SIMILARITY_THRESHOLD,
-                settings.MIN_MATCHES,
             )
 
         if not matched_paths:
