@@ -163,8 +163,18 @@ jobs:
           cp config/nginx/nginx.conf nginx/nginx.conf
           cp config/rabbitmq/rabbitmq.conf rabbitmq/rabbitmq.conf
 
+      - name: Fix permissions on GCP VM before SCP
+        uses: appleboy/ssh-action@v1.2.3
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: github-actions
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          script: |
+            sudo mkdir -p /app
+            sudo chown -R github-actions:github-actions /app
+
       - name: Copy Compose and configs to VM
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.GCP_VM_IP }}
           username: github-actions
@@ -173,7 +183,7 @@ jobs:
           target: "/app"
 
       - name: Deploy to Google Cloud VM
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.3
         with:
           host: ${{ secrets.GCP_VM_IP }}
           username: github-actions
