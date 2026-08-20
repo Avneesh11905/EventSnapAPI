@@ -26,9 +26,11 @@ add_exception_handlers(app)
 
 app.include_router(inference.router)
 
+
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok"}
+
 
 if __name__ == "__main__":
     port = 5000

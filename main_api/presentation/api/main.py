@@ -9,17 +9,17 @@ from infrastructure.di_container import get_container
 from sqlalchemy import text
 from infrastructure.queue.celery_app import celery_app
 
-import asyncio
 import logging
-from config import settings
 
 container = get_container()
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Any necessary init happens via Dependency Injector singletons if needed
     yield
+
 
 app = FastAPI(
     title="Eventsnap Main API (Orchestrator) - Clean",
