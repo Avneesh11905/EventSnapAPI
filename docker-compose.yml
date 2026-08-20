@@ -12,6 +12,7 @@ x-networks: &networks
 
 networks:
   Eventsnap-Network:
+    name: Eventsnap-Network
     driver: bridge
   Nginx-Network:
     external: true
