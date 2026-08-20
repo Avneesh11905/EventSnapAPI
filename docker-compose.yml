@@ -29,9 +29,9 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks: *networks
+
   es-inference-api: 
     image: *inference-api-image
-    container_name: inference_api
     restart: unless-stopped
     env_file: *env-file
     networks: *networks
