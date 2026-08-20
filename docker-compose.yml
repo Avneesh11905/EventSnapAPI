@@ -19,8 +19,8 @@ volumes:
 
 services:
   es-rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: eventsnap_rabbitmq
+    image: rabbitmq:3-management
+    container_name: es-rabbitmq
     restart: unless-stopped
     env_file: *env-file
     ports:
@@ -28,6 +28,7 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     networks: *networks
 
   es-inference-api: 
@@ -96,7 +97,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./config/nginx/nginx.conf:/etc/nginx/user_conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/user_conf.d/default.conf:ro
       - certbot_certs:/etc/letsencrypt
     depends_on:
       es-main-api:

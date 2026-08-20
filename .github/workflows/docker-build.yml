@@ -157,18 +157,19 @@ jobs:
           export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="${{ secrets.INFISICAL_MACHINE_IDENTITY_CLIENT_ID }}" --client-secret="${{ secrets.INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET }}" --plain --silent)
           infisical export --projectId="${{ secrets.INFISICAL_PROJECT_ID }}" --env=prod --format=dotenv > .env
 
-      - name: Prepare Nginx config for VM
+      - name: Prepare configs for VM
         run: |
-          mkdir -p nginx
+          mkdir -p nginx rabbitmq
           cp config/nginx/nginx.conf nginx/nginx.conf
+          cp config/rabbitmq/rabbitmq.conf rabbitmq/rabbitmq.conf
 
-      - name: Copy Compose and Nginx files to VM
+      - name: Copy Compose and configs to VM
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.GCP_VM_IP }}
           username: github-actions
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/nginx.conf,.env"
+          source: "docker-compose.yml,nginx/nginx.conf,rabbitmq/rabbitmq.conf,.env"
           target: "/app"
 
       - name: Deploy to Google Cloud VM
