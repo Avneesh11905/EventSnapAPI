@@ -13,6 +13,7 @@ from domain.exceptions import (
 )
 from config import settings
 
+
 class EncodeAttendeeUseCase:
     def __init__(
         self, inference_service: IInferenceService, augmenter: IImageAugmenter
@@ -65,7 +66,10 @@ class SortAttendeeUseCase:
                 )
 
             matched_paths = await uow.event_repo.find_matches(
-                event_code, attendee_encodings, settings.SIMILARITY_THRESHOLD, settings.MIN_MATCHES
+                event_code,
+                attendee_encodings,
+                settings.SIMILARITY_THRESHOLD,
+                settings.MIN_MATCHES,
             )
 
         if not matched_paths:

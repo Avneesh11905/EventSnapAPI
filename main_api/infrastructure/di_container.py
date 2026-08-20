@@ -24,7 +24,6 @@ from infrastructure.image_augmenter import OpenCVImageAugmenter
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from config import settings
 from sqlalchemy.pool import NullPool
-import httpx
 
 
 class Container(containers.DeclarativeContainer):
