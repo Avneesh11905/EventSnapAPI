@@ -16,7 +16,6 @@ from presentation.api.schemas import (
 )
 import asyncio
 import dataclasses
-from typing import Any
 
 router = APIRouter()
 
@@ -52,25 +51,30 @@ async def get_encoding_status(
 ):
     response = await asyncio.to_thread(use_case.execute, task_id)
 
-    state = response.get("status")
-    formatted: dict[str, Any] = {"task_id": task_id, "status": state}
+    progress = None
+    images_processed = None
+    total_images = None
+    message = None
 
-    if state == "PROCESSING" and "progress" in response:
-        formatted.update(
-            {
-                "progress": f"{response.get('progress', 0)}%",
-                "images_processed": response.get("processed", 0),
-                "total_images": response.get("total", 0),
-            }
-        )
-    elif state == "SUCCESS" and "result" in response:
-        res_data = response["result"]
+    if response.state == "PROCESSING" and response.info and "progress" in response.info:
+        progress = f"{response.info.get('progress', 0)}%"
+        images_processed = int(response.info.get("processed", 0))
+        total_images = int(response.info.get("total", 0))
+    elif response.state == "SUCCESS" and response.result:
+        res_data = response.result
         if isinstance(res_data, dict):
-            formatted["message"] = res_data.get("result", str(res_data))
+            message = res_data.get("result", str(res_data))
         else:
-            formatted["message"] = str(res_data)
+            message = str(res_data)
 
-    return EncodingStatusResponse(**formatted)
+    return EncodingStatusResponse(
+        task_id=task_id,
+        status=response.state,
+        progress=progress,
+        images_processed=images_processed,
+        total_images=total_images,
+        message=message
+    )
 
 
 @router.get("/encode-count/{event_code}", response_model=EncodedCountResponse)

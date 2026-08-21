@@ -1,8 +1,7 @@
 import logging
-from typing import Any
-
 from application.ports.face_services import IFaceDetector, IFaceEmbedder
 from application.ports.image_services import IImageDecoder
+from application.dtos import InferenceParametersDTO, InferenceResultDTO, FaceResultDTO
 
 logger = logging.getLogger(__name__)
 
@@ -19,22 +18,16 @@ class ProcessImagesUseCase:
         self.image_decoder = image_decoder
 
     def execute(
-        self, inputs: list[str] | str, parameters: dict[str, Any]
-    ) -> dict[str, Any]:
-        max_faces_param = parameters.get("max_faces", 0)
-        max_faces = 0 if max_faces_param == "all" else int(max_faces_param)
-        detection_conf = float(parameters.get("detection_conf", 0.5))
-        nms_thresh = float(parameters.get("nms_threshold", 0.4))
+        self, inputs: list[str], parameters: InferenceParametersDTO
+    ) -> InferenceResultDTO:
+        max_faces = parameters.max_faces
+        detection_conf = parameters.detection_conf
+        nms_thresh = parameters.nms_threshold
 
         try:
-            is_batch = isinstance(inputs, list)
-            input_strings: list[str] = (
-                list(inputs) if isinstance(inputs, list) else [str(inputs)]
-            )
+            logger.info(f"Processing inference for {len(inputs)} images")
 
-            logger.info(f"Processing inference for {len(input_strings)} images")
-
-            cv_images = self.image_decoder.decode_batch(input_strings)
+            cv_images = self.image_decoder.decode_batch(inputs)
 
             batch_faces = self.detector.detect_batch(
                 cv_images,
@@ -43,7 +36,7 @@ class ProcessImagesUseCase:
                 nms_threshold=nms_thresh,
             )
 
-            final_results: list[list[dict[str, Any]]] = [
+            final_results: list[list[FaceResultDTO]] = [
                 [] for _ in range(len(cv_images))
             ]
             all_aligned_faces = []
@@ -62,17 +55,14 @@ class ProcessImagesUseCase:
                 for (img_idx, face_idx), emb in zip(face_mapping, all_embeddings):
                     face_obj = batch_faces[img_idx][face_idx]
                     final_results[img_idx].append(
-                        {
-                            "bbox": face_obj.bbox.tolist(),
-                            "confidence": float(face_obj.confidence),
-                            "embedding": emb.tolist(),
-                        }
+                        FaceResultDTO(
+                            bbox=face_obj.bbox.tolist(),
+                            confidence=float(face_obj.confidence),
+                            embedding=emb.tolist(),
+                        )
                     )
 
-            if not is_batch:
-                return {"faces": final_results[0]}
-            else:
-                return {"batch_faces": final_results}
+            return InferenceResultDTO(batch_faces=final_results)
 
         finally:
             if "cv_images" in locals():

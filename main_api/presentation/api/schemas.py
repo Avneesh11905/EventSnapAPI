@@ -81,3 +81,9 @@ class ZipCheckResponse(BaseModel):
     exists: bool
     zip_path: Optional[str] = None
     filename: Optional[str] = None
+
+
+class TaskStatusResponse(BaseModel):
+    state: str
+    info: Optional[dict] = None
+    result: Optional[dict] = None

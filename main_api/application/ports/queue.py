@@ -1,5 +1,5 @@
-from typing import Any, Dict, Protocol
-
+from typing import Protocol
+from application.dtos import TaskStatusDTO
 
 class ITaskQueueService(Protocol):
     def enqueue_encode_event(
@@ -27,8 +27,8 @@ class ITaskQueueService(Protocol):
         """Returns the task ID"""
         pass
 
-    def get_task_status(self, task_id: str) -> Dict[str, Any]:
-        """Returns dict with state, info, result"""
+    def get_task_status(self, task_id: str) -> TaskStatusDTO:
+        """Returns TaskStatusDTO with state, info, result"""
         pass
 
     def enqueue_delete_event(self, event_code: str, event_id: str | None = None) -> str:

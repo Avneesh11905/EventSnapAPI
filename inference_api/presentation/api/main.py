@@ -4,7 +4,7 @@ import uvicorn
 from fastapi.middleware.gzip import GZipMiddleware
 
 from infrastructure.di_container import get_container
-from presentation.api.routes import inference
+from presentation.api.routes.inference import router
 from presentation.api.exception_handlers import add_exception_handlers
 
 # Set up logging
@@ -24,7 +24,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 add_exception_handlers(app)
 
-app.include_router(inference.router)
+app.include_router(router)
 
 
 @app.get("/health", tags=["Health"])

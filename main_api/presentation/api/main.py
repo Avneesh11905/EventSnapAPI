@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from presentation.api.exception_handlers import add_exception_handlers
-from presentation.api.schemas import HealthResponse
+from presentation.api.schemas import HealthResponse, TaskStatusResponse
 
 from presentation.api.routers import events, attendees
 from infrastructure.di_container import get_container
@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Any necessary init happens via Dependency Injector singletons if needed
     yield
 
 
@@ -36,11 +35,12 @@ app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(attendees.router, prefix="/api/attendees", tags=["Attendees"])
 
 
-@app.get("/api/tasks/{task_id}", tags=["Tasks"])
+@app.get("/api/tasks/{task_id}", tags=["Tasks"], response_model=TaskStatusResponse)
 def get_task_status(task_id: str):
     """Checks the status of any Celery task via Use Case."""
     use_case = container.check_encoding_status_use_case()
-    return use_case.execute(task_id)
+    dto = use_case.execute(task_id)
+    return TaskStatusResponse(state=dto.state, info=dto.info, result=dto.result)
 
 
 @app.get("/", tags=["Health"], response_model=HealthResponse)

@@ -3,7 +3,7 @@ from application.ports.storage import IStorageService
 from application.ports.inference import IInferenceService
 from application.ports.uow import IUnitOfWork
 from application.ports.queue import ITaskQueueService
-from typing import Callable, Any
+from typing import Callable
 import uuid
 from domain.exceptions import ZipGenerationError, StorageDownloadError, InferenceError
 from application.dtos import (
@@ -120,7 +120,7 @@ class ProcessEventEncodingUseCase:
         event_code: str,
         det_conf: float,
         nms_thresh: float,
-        update_state_cb: Callable[[str, dict], Any],
+        update_state_cb: Callable[[str, dict], None],
     ) -> BackgroundEncodingResult:
         update_state_cb(
             "INITIALIZING", {"progress": 0, "status": "Listing Storage files..."}
@@ -187,7 +187,7 @@ class CreateEventZipUseCase:
         event_id: str,
         user_id: str,
         image_paths: list[dict],
-        update_state_cb: Callable[[str, dict], Any],
+        update_state_cb: Callable[[str, dict], None],
     ) -> BackgroundZipResult:
         total = len(image_paths)
         if total == 0:

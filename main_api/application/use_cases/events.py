@@ -1,6 +1,6 @@
 from application.ports.queue import ITaskQueueService
 from application.ports.uow import IUnitOfWork
-from application.dtos import EncodedCountDTO, DeleteDataDTO
+from application.dtos import EncodedCountDTO, DeleteDataDTO, TaskStatusDTO
 
 
 class StartEventEncodingUseCase:
@@ -22,7 +22,7 @@ class CheckEncodingStatusUseCase:
     def __init__(self, queue_service: ITaskQueueService):
         self.queue_service = queue_service
 
-    def execute(self, task_id: str) -> dict:
+    def execute(self, task_id: str) -> TaskStatusDTO:
         return self.queue_service.get_task_status(task_id)
 
 
