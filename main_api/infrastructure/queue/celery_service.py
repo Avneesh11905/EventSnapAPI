@@ -1,6 +1,6 @@
 from application.ports.queue import ITaskQueueService
 from celery.result import AsyncResult
-from typing import Any, Dict
+from application.dtos import TaskStatusDTO
 from infrastructure.queue.celery_app import celery_app
 
 
@@ -48,17 +48,16 @@ class CeleryTaskQueueService(ITaskQueueService):
         task = delete_event_data_task.delay(event_code, event_id)
         return task.id
 
-    def get_task_status(self, task_id: str) -> Dict[str, Any]:
+    def get_task_status(self, task_id: str) -> TaskStatusDTO:
         res = AsyncResult(task_id, app=celery_app)
 
-        response = {
-            "task_id": task_id,
-            "status": res.state,
-        }
+        status_info: dict[str, str | int] = {}
+        status_result = None
+        state = res.state
 
         if res.ready():
             if res.successful():
-                response["result"] = res.result
+                status_result = res.result if isinstance(res.result, dict) else {"result": res.result}
                 # Check if this task delegated to a group
                 if isinstance(res.result, dict) and "group_id" in res.result:
                     group_id = res.result["group_id"]
@@ -69,23 +68,27 @@ class CeleryTaskQueueService(ITaskQueueService):
                             completed = group.completed_count()
                             total = len(group)
                             if not group.ready():
-                                response["status"] = "PROCESSING"
-                                response["progress"] = int((completed / total) * 100) if total else 0
+                                state = "PROCESSING"
+                                status_info["progress"] = int((completed / total) * 100) if total else 0
                                 # Multiply batches by batch size to get image count, capped at total
                                 from config import settings
                                 total_images = res.result.get("total", total)
-                                response["processed"] = min(completed * settings.INFERENCE_BATCH_SIZE, total_images)
-                                response["total"] = total_images
+                                status_info["processed"] = min(completed * settings.INFERENCE_BATCH_SIZE, total_images)
+                                status_info["total"] = total_images
             else:
                 try:
-                    response["error"] = str(res.result)
+                    status_info["error"] = str(res.result)
                 except Exception:
-                    response["error"] = (
+                    status_info["error"] = (
                         "Task failed, but the result/exception could not be parsed."
                     )
         else:
             info = res.info
             if isinstance(info, dict):
-                response.update(info)
+                status_info.update(info)
 
-        return response
+        return TaskStatusDTO(
+            state=state,
+            info=status_info if status_info else None,
+            result=status_result
+        )

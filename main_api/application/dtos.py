@@ -63,3 +63,10 @@ class BackgroundZipResult:
     zip_path: str
     filename: str
     images_zipped: int
+
+
+@dataclass
+class TaskStatusDTO:
+    state: str
+    info: Optional[dict] = None
+    result: Optional[dict] = None
