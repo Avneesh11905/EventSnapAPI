@@ -17,7 +17,7 @@ from application.use_cases.background_tasks import (
     EncodeImageBatchUseCase,
 )
 from infrastructure.database.uow import AsyncSqlAlchemyUnitOfWork
-from infrastructure.storage.minio_service import MinioStorageService
+from infrastructure.storage.s3_service import S3StorageService
 from infrastructure.inference.hf_inference_service import HFInferenceService
 from infrastructure.queue.celery_service import CeleryTaskQueueService
 from infrastructure.image_augmenter import OpenCVImageAugmenter
@@ -39,10 +39,10 @@ class Container(containers.DeclarativeContainer):
     config.from_dict(
         {
             "db_url": settings.DATABASE_URL,
-            "minio_endpoint": settings.STORAGE_ENDPOINT,
-            "minio_bucket": settings.STORAGE_BUCKET_NAME,
-            "minio_access": settings.STORAGE_ACCESS_KEY,
-            "minio_secret": settings.STORAGE_SECRET_KEY,
+            "storage_endpoint": settings.STORAGE_ENDPOINT,
+            "storage_bucket": settings.STORAGE_BUCKET_NAME,
+            "storage_access": settings.STORAGE_ACCESS_KEY,
+            "storage_secret": settings.STORAGE_SECRET_KEY,
             "inference_url": settings.INFERENCE_API_URL,
         }
     )
@@ -58,11 +58,11 @@ class Container(containers.DeclarativeContainer):
     uow = providers.Factory(AsyncSqlAlchemyUnitOfWork, session_factory=session_factory)
 
     storage_service = providers.Factory(
-        MinioStorageService,
-        endpoint_url=config.minio_endpoint,
-        bucket_name=config.minio_bucket,
-        access_key=config.minio_access,
-        secret_key=config.minio_secret,
+        S3StorageService,
+        endpoint_url=config.storage_endpoint,
+        bucket_name=config.storage_bucket,
+        access_key=config.storage_access,
+        secret_key=config.storage_secret,
     )
 
     inference_service = providers.Factory(

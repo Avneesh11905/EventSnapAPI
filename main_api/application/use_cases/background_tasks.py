@@ -29,7 +29,6 @@ class EncodeImageBatchUseCase:
         self,
         event_code: str,
         keys: list[str],
-        max_faces: int,
         det_conf: float,
         nms_thresh: float,
     ) -> None:
@@ -56,7 +55,7 @@ class EncodeImageBatchUseCase:
 
         try:
             results = await self.inference_service.get_face_encodings(
-                valid_b64, max_faces, det_conf, nms_thresh
+                valid_b64, det_conf, nms_thresh
             )
 
             insert_data = []
@@ -97,13 +96,12 @@ class ProcessEventEncodingUseCase:
     async def execute(
         self,
         event_code: str,
-        max_faces: int,
         det_conf: float,
         nms_thresh: float,
         update_state_cb: Callable[[str, dict], Any],
     ) -> BackgroundEncodingResult:
         update_state_cb(
-            "INITIALIZING", {"progress": 0, "status": "Listing MinIO files..."}
+            "INITIALIZING", {"progress": 0, "status": "Listing Storage files..."}
         )
 
         base_folder = f"event/{event_code}"
@@ -152,7 +150,6 @@ class ProcessEventEncodingUseCase:
             tid = self.queue_service.enqueue_encode_batch(
                 event_code=event_code,
                 keys=chunk,
-                max_faces=max_faces,
                 detection_conf=det_conf,
                 nms_threshold=nms_thresh,
             )

@@ -18,7 +18,7 @@ import os
 import base64
 
 
-class MinioStorageService(IStorageService):
+class S3StorageService(IStorageService):
     def __init__(
         self, endpoint_url: str, bucket_name: str, access_key: str, secret_key: str
     ):

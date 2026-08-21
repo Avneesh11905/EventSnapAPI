@@ -10,12 +10,11 @@ class StartEventEncodingUseCase:
     def execute(
         self,
         event_code: str,
-        max_faces: int,
         detection_conf: float,
         nms_threshold: float,
     ) -> str:
         return self.queue_service.enqueue_encode_event(
-            event_code, max_faces, detection_conf, nms_threshold
+            event_code, detection_conf, nms_threshold
         )
 
 

@@ -15,7 +15,6 @@ import dataclasses
 def encode_event_task(
     self,
     event_code: str,
-    max_faces: int = 0,
     det_conf: float = 0.5,
     nms_thresh: float = 0.4,
 ):
@@ -28,7 +27,6 @@ def encode_event_task(
     result = asyncio.run(
         use_case.execute(
             event_code=event_code,
-            max_faces=max_faces,
             det_conf=det_conf,
             nms_thresh=nms_thresh,
             update_state_cb=update_state_cb,
@@ -51,7 +49,6 @@ def encode_image_batch_task(
     self,
     event_code: str,
     keys: list[str],
-    max_faces: int = 0,
     det_conf: float = 0.5,
     nms_thresh: float = 0.4,
 ):
@@ -62,7 +59,6 @@ def encode_image_batch_task(
         use_case.execute(
             event_code=event_code,
             keys=keys,
-            max_faces=max_faces,
             det_conf=det_conf,
             nms_thresh=nms_thresh,
         )

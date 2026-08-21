@@ -10,7 +10,6 @@ class HFInferenceService(IInferenceService):
     async def get_face_encodings(
         self,
         b64_images: List[str],
-        max_faces: int = 0,
         detection_conf: float = 0.5,
         nms_threshold: float = 0.4,
     ) -> List[List[Dict]]:
@@ -18,7 +17,6 @@ class HFInferenceService(IInferenceService):
         payload = {
             "inputs": b64_images,
             "parameters": {
-                "max_faces": max_faces,
                 "detection_conf": detection_conf,
                 "nms_threshold": nms_threshold,
             },

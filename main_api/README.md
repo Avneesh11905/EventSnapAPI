@@ -37,7 +37,6 @@ curl -X 'POST' \
   -H 'Content-Type: application/json' \
   -d '{
   "event_code": "DCAYTI",
-  "max_faces": 0,
   "detection_conf": 0.5,
   "nms_threshold": 0.4
 }'
@@ -49,7 +48,6 @@ import axios from 'axios';
 
 const response = await axios.post('http://localhost:8000/api/events/encode-event/', {
   event_code: 'DCAYTI',
-  max_faces: 0,
   detection_conf: 0.5,
   nms_threshold: 0.4
 }, {

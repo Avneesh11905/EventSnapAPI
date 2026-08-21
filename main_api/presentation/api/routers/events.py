@@ -31,7 +31,6 @@ async def start_event_encoding(
 ):
     task_id = use_case.execute(
         request.event_code,
-        request.max_faces,
         request.detection_conf,
         request.nms_threshold,
     )
