@@ -11,6 +11,7 @@ from domain.exceptions import (
     InvalidReferenceImagesError,
     EventNotFoundError,
     NoMatchesFoundError,
+    FaceValidationError,
 )
 from config import settings
 
@@ -28,6 +29,51 @@ class EncodeAttendeeUseCase:
                 "Must provide exactly 3 attendee images (front, left, right)."
             )
 
+        # 1. Validation Step: Check original images for multiple faces or no faces
+        original_results = await self.inference_service.get_face_encodings(
+            attendee_images_base64
+        )
+
+        validation_errors = []
+        no_faces_count = 0
+        multi_faces_count = 0
+
+        for i, image_faces in enumerate(original_results):
+            if len(image_faces) > 1:
+                bboxes = [face["bbox"] for face in image_faces]
+                validation_errors.append(
+                    {"image_index": i, "bboxes": bboxes, "issue": "multiple"}
+                )
+                multi_faces_count += 1
+            elif len(image_faces) == 0:
+                validation_errors.append(
+                    {"image_index": i, "bboxes": [], "issue": "none"}
+                )
+                no_faces_count += 1
+
+        if validation_errors:
+            msg_parts = []
+            if no_faces_count:
+                msg_parts.append(
+                    f"no face in {no_faces_count} {'photo' if no_faces_count == 1 else 'photos'}"
+                )
+            if multi_faces_count:
+                msg_parts.append(
+                    f"multiple faces in {multi_faces_count} {'photo' if multi_faces_count == 1 else 'photos'}"
+                )
+
+            error_msg = (
+                "Issues detected: "
+                + " and ".join(msg_parts)
+                + ". Please retake the highlighted ones."
+            )
+
+            raise FaceValidationError(
+                error_msg,
+                details=validation_errors,
+            )
+
+        # 2. Execution Step: Augment and process
         augmented_b64_images = await asyncio.to_thread(
             self.augmenter.augment, attendee_images_base64
         )

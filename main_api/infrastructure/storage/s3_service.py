@@ -44,7 +44,7 @@ class S3StorageService(IStorageService):
             config=Config(
                 signature_version="s3v4",
                 request_checksum_calculation="when_required",
-                response_checksum_validation="when_required"
+                response_checksum_validation="when_required",
             ),
         ) as s3:
             paginator = s3.get_paginator("list_objects_v2")
@@ -73,7 +73,7 @@ class S3StorageService(IStorageService):
                 signature_version="s3v4",
                 max_pool_connections=settings.S3_MAX_POOL_CONNECTIONS,
                 request_checksum_calculation="when_required",
-                response_checksum_validation="when_required"
+                response_checksum_validation="when_required",
             ),
         ) as s3_client:
             response = await s3_client.get_object(Bucket=self.bucket_name, Key=key)
@@ -92,7 +92,7 @@ class S3StorageService(IStorageService):
             max_pool_connections=settings.S3_MAX_POOL_CONNECTIONS,
             retries={"max_attempts": 0},
             request_checksum_calculation="when_required",
-            response_checksum_validation="when_required"
+            response_checksum_validation="when_required",
         )
 
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
@@ -142,7 +142,7 @@ class S3StorageService(IStorageService):
 
                 with open(tmp_path, "rb") as f:
                     file_data = f.read()
-                    
+
                 await s3_client.put_object(
                     Bucket=self.bucket_name,
                     Key=zip_path,

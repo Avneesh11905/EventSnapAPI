@@ -8,10 +8,8 @@ from sqlalchemy import (
     delete,
     func,
     literal_column,
-    cast,
     Float,
 )
-from pgvector.sqlalchemy import Vector
 from typing import List, Set
 import dataclasses
 
@@ -63,7 +61,9 @@ class PostgresEventRepository(IEventRepository):
         encoding: List[float],
         threshold: float,
     ) -> List[str]:
-        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(encoding)
+        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(
+            encoding
+        )
 
         stmt = (
             select(

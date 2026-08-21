@@ -10,9 +10,13 @@ def add_exception_handlers(app: FastAPI):
         if isinstance(exc, (EventNotFoundError, NoMatchesFoundError)):
             status_code = 404
 
+        content = {"error": str(exc), "type": exc.__class__.__name__}
+        if hasattr(exc, "details") and exc.details:
+            content["details"] = exc.details
+
         return JSONResponse(
             status_code=status_code,
-            content={"error": str(exc), "type": exc.__class__.__name__},
+            content=content,
         )
 
     @app.exception_handler(Exception)
