@@ -5,7 +5,7 @@ from application.ports.uow import IUnitOfWork
 from application.ports.queue import ITaskQueueService
 from typing import Callable
 import uuid
-from domain.exceptions import ZipGenerationError, StorageDownloadError, InferenceError
+from domain.exceptions import ZipGenerationError, InferenceError
 from application.dtos import (
     BackgroundEncodingResult,
     BackgroundZipResult,
@@ -45,11 +45,12 @@ class EncodeImageBatchUseCase:
 
         valid_keys: list[str] = []
         valid_b64: list[str] = []
+        failed_keys: list[str] = []
         for key, b64 in zip(keys, b64_images):
             if isinstance(b64, Exception):
-                raise StorageDownloadError(
-                    f"Failed to download {key} after retries: {b64}"
-                )
+                logger.warning(f"Failed to download {key} after retries: {b64}. Skipping this image.")
+                failed_keys.append(key)
+                continue
             elif b64 is not None:
                 valid_keys.append(key)
                 valid_b64.append(str(b64))
@@ -57,8 +58,9 @@ class EncodeImageBatchUseCase:
         if not valid_keys:
             return {
                 "encoded": 0,
-                "no_encodings_found": len(keys),
-                "total": len(keys)
+                "no_encodings_found": 0,
+                "total": len(keys),
+                "failures": failed_keys
             }
 
         try:
@@ -94,11 +96,12 @@ class EncodeImageBatchUseCase:
             logger.info(f"Database insert for {len(insert_data)} encodings took {db_time - db_start:.2f}s")
 
             encoded = sum(1 for image_faces in results if any(f.get("embedding") for f in image_faces))
-            no_encodings_found = len(keys) - encoded
+            no_encodings_found = len(valid_keys) - encoded
             return {
                 "encoded": encoded,
                 "no_encodings_found": no_encodings_found,
-                "total": len(keys)
+                "total": len(keys),
+                "failures": failed_keys
             }
         except Exception as e:
             raise InferenceError(f"Failed to infer batch: {e}") from e
