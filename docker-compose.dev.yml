@@ -2,10 +2,21 @@ name: eventsnap
 
 x-env-file: &env-file
   - .env
+x-networks: &networks
+  - Eventsnap-Network
+  # - Infrastructure-Network
+
+x-host-and-networks-config: &host-and-networks
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  networks: *networks
 
 networks:
   Eventsnap-Network:
+    name: Eventsnap-Network
     driver: bridge
+  # Infrastructure-Network:
+  #   external: true
 
 volumes:
   rabbitmq_data:
@@ -24,8 +35,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    networks:
-      - Eventsnap-Network
+    networks: *networks
       
   es-inference_api:
     build: 
@@ -48,8 +58,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    networks:
-      - Eventsnap-Network
+    networks: *networks
 
   es-db_migration:
     build: 
@@ -63,8 +72,7 @@ services:
       - ./main_api:/app
       - main_api_venv:/app/.venv
     restart: no
-    networks:
-      - Eventsnap-Network
+    <<: *host-and-networks
 
   es-main_api:
     build: 
@@ -86,8 +94,7 @@ services:
       es-inference_api:
         condition: service_started
     restart: unless-stopped
-    networks:
-      - Eventsnap-Network
+    <<: *host-and-networks
 
   es-celery_worker:
     build: 
@@ -107,8 +114,7 @@ services:
       es-inference_api:
         condition: service_started
     restart: unless-stopped
-    networks:
-      - Eventsnap-Network
+    <<: *host-and-networks
 
   es-celery_flower:
     build: 
@@ -126,6 +132,4 @@ services:
       es-rabbitmq:
         condition: service_started
     restart: unless-stopped
-    networks:
-      - Eventsnap-Network
-          
+    <<: *host-and-networks
