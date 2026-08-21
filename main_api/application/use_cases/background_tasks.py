@@ -31,7 +31,7 @@ class EncodeImageBatchUseCase:
         keys: list[str],
         det_conf: float,
         nms_thresh: float,
-    ) -> None:
+    ) -> dict:
 
         batch_thumb_keys = [k.replace("/raw/", "/thumbs/", 1) for k in keys]
         download_tasks = [
@@ -51,7 +51,11 @@ class EncodeImageBatchUseCase:
                 valid_b64.append(str(b64))
 
         if not valid_keys:
-            return
+            return {
+                "encoded": 0,
+                "no_encodings_found": len(keys),
+                "total": len(keys)
+            }
 
         try:
             results = await self.inference_service.get_face_encodings(
@@ -78,6 +82,13 @@ class EncodeImageBatchUseCase:
                 async with self.uow as uow:
                     await uow.event_repo.save_encodings(insert_data)
                     await uow.commit()
+            encoded = sum(1 for image_faces in results if any(f.get("embedding") for f in image_faces))
+            no_encodings_found = len(keys) - encoded
+            return {
+                "encoded": encoded,
+                "no_encodings_found": no_encodings_found,
+                "total": len(keys)
+            }
         except Exception as e:
             raise InferenceError(f"Failed to infer batch: {e}") from e
 
@@ -110,9 +121,7 @@ class ProcessEventEncodingUseCase:
         all_thumb_keys = await self.storage_service.list_images(thumbs_folder)
 
         if len(all_thumb_keys) == 0:
-            return BackgroundEncodingResult(
-                result="No images found in folder.", total=0
-            )
+            return BackgroundEncodingResult(total=0)
 
         all_raw_keys = [k.replace("/thumbs/", "/raw/", 1) for k in all_thumb_keys]
 
@@ -126,11 +135,7 @@ class ProcessEventEncodingUseCase:
         total_images = len(new_raw_keys)
 
         if total_images == 0:
-            return BackgroundEncodingResult(
-                result="All images already encoded.",
-                total=len(all_thumb_keys),
-                skipped=skipped,
-            )
+            return BackgroundEncodingResult(total=len(all_thumb_keys), skipped=skipped)
 
         update_state_cb(
             "PROCESSING",
@@ -158,12 +163,21 @@ class ProcessEventEncodingUseCase:
         import asyncio
 
         completed_tasks: set[str] = set()
+        total_encoded = 0
+        total_no_encodings = 0
+
         while len(completed_tasks) < len(task_ids):
             for tid in task_ids:
                 if tid not in completed_tasks:
                     status = self.queue_service.get_task_status(tid)
                     if status.get("status") in ("SUCCESS", "FAILURE"):
                         completed_tasks.add(tid)
+                        
+                        if status.get("status") == "SUCCESS":
+                            res = status.get("result", {})
+                            if isinstance(res, dict):
+                                total_encoded += res.get("encoded", 0)
+                                total_no_encodings += res.get("no_encodings_found", 0)
 
             processed_batches = len(completed_tasks)
             processed_images = min(processed_batches * batch_size, total_images)
@@ -197,9 +211,10 @@ class ProcessEventEncodingUseCase:
         )
 
         return BackgroundEncodingResult(
-            result=f"Successfully processed {total_images} images.",
             total=len(all_thumb_keys),
             skipped=skipped,
+            encoded=total_encoded,
+            no_encodings_found=total_no_encodings,
         )
 
 
@@ -238,10 +253,9 @@ class CreateEventZipUseCase:
             )
 
             return BackgroundZipResult(
-                status="COMPLETED",
-                progress=100,
                 zip_path=storage_path,
                 filename=zip_filename,
+                images_zipped=total,
             )
         except Exception as e:
             update_state_cb("FAILED", {"error": str(e)})
