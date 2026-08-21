@@ -73,11 +73,6 @@ services:
     image: *main-api-image
     command: celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
     env_file: *env-file
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A infrastructure.queue.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
     depends_on:
       es-rabbitmq:
         condition: service_healthy
@@ -95,6 +90,6 @@ services:
       es-rabbitmq:
         condition: service_healthy
       es-celery-worker:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
     networks: *networks

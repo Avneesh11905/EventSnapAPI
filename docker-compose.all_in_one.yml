@@ -145,11 +145,6 @@ services:
     command: >
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
     env_file: *env-file
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A infrastructure.queue.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
     depends_on:
       es-rabbitmq:
         condition: service_healthy
@@ -177,7 +172,7 @@ services:
       es-rabbitmq:
         condition: service_healthy
       es-celery_worker:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
     networks:
       - Eventsnap-Network
