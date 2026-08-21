@@ -51,14 +51,14 @@ class ZipCheckDTO:
 
 @dataclass
 class BackgroundEncodingResult:
-    result: str
     total: int
     skipped: int = 0
+    encoded: int = 0
+    no_encodings_found: int = 0
 
 
 @dataclass
 class BackgroundZipResult:
-    status: str
-    progress: int
     zip_path: str
     filename: str
+    images_zipped: int

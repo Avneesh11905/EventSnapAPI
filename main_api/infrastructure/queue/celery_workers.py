@@ -86,19 +86,39 @@ def create_event_zip_task(self, event_id: str, user_id: str, image_paths: list[d
     return result
 
 
-@shared_task(bind=True, name="delete_event_data_task", acks_late=True)
+@shared_task(
+    bind=True, 
+    name="delete_event_data_task", 
+    acks_late=True,
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 5},
+    retry_backoff=True,
+)
 def delete_event_data_task(self, event_code: str, event_id: str | None = None):
     container = get_container()
     uow = container.uow()
     storage = container.storage_service()
 
     async def _delete():
-        async with uow:
-            await uow.event_repo.delete_event_data(event_code)
-            await uow.commit()
-        await storage.delete_folder(f"event/{event_code}/")
-        if event_id:
-            await storage.delete_folder(f"zip/{event_id}/")
+        try:
+            async with uow:
+                await uow.event_repo.delete_event_data(event_code)
+                await uow.commit()
+                
+            await storage.delete_folder(f"event/{event_code}/")
+            msg = f"Successfully deleted event {event_code} from database and removed 'event/{event_code}/' from storage."
+            if event_id:
+                await storage.delete_folder(f"zip/{event_id}/")
+                msg = f"Successfully deleted event {event_code} from database and removed 'event/{event_code}/' and 'zip/{event_id}/' from storage."
+                
+            return {"success": True, "message": msg}
+        except Exception as e:
+            self.update_state(
+                state="FAILURE",
+                meta={
+                    "error": f"Failed to delete event data for event_code={event_code}. Reason: {str(e)}"
+                },
+            )
+            raise
 
-    asyncio.run(_delete())
-    return {"success": True, "message": f"Deleted event {event_code}"}
+    return asyncio.run(_delete())
