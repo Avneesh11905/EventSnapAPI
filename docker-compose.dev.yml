@@ -11,6 +11,14 @@ x-host-and-networks-config: &host-and-networks
     - "host.docker.internal:host-gateway"
   networks: *networks
 
+x-main-api-and-celery-deps: &main-api-and-celery-deps
+  es-rabbitmq:
+    condition: service_started
+  es-db_migration:
+    condition: service_completed_successfully
+  es-inference_api:
+    condition: service_started
+
 networks:
   Eventsnap-Network:
     name: Eventsnap-Network
@@ -86,13 +94,7 @@ services:
       - main_api_venv:/app/.venv
     command: >
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 8000 --reload; fi'
-    depends_on:
-      es-rabbitmq:
-        condition: service_started
-      es-db_migration:
-        condition: service_completed_successfully
-      es-inference_api:
-        condition: service_started
+    depends_on: *main-api-and-celery-deps
     restart: unless-stopped
     <<: *host-and-networks
 
@@ -106,13 +108,7 @@ services:
       - main_api_venv:/app/.venv
     command: >
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
-    depends_on:
-      es-rabbitmq:
-        condition: service_started
-      es-db_migration:
-        condition: service_completed_successfully
-      es-inference_api:
-        condition: service_started
+    depends_on: *main-api-and-celery-deps
     restart: unless-stopped
     <<: *host-and-networks
 
