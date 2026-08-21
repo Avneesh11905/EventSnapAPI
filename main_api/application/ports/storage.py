@@ -5,7 +5,7 @@ class IStorageService(Protocol):
     async def list_images(self, folder_path: str) -> List[str]:
         pass
 
-    async def download_image_b64(self, key: str, max_size: int = 1024) -> str | None:
+    async def download_images_b64(self, keys: List[str]) -> List[str | Exception]:
         pass
 
     async def create_zip_from_images(

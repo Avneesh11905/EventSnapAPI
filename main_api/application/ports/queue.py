@@ -11,14 +11,14 @@ class ITaskQueueService(Protocol):
         """Returns the task ID"""
         pass
 
-    def enqueue_encode_batch(
+    def enqueue_encode_group(
         self,
         event_code: str,
-        keys: list[str],
+        chunks: list[list[str]],
         detection_conf: float,
         nms_threshold: float,
     ) -> str:
-        """Returns the task ID"""
+        """Returns the group ID"""
         pass
 
     def enqueue_create_zip(

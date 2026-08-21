@@ -64,8 +64,17 @@ class S3StorageService(IStorageService):
         ),
         reraise=True,
     )
-    async def download_image_b64(self, key: str, max_size: int = 1024) -> str | None:
+    async def download_images_b64(self, keys: List[str]) -> List[str | Exception]:
         session = self._get_session()
+        
+        async def fetch_single(client, k):
+            try:
+                res = await client.get_object(Bucket=self.bucket_name, Key=k)
+                data = await res["Body"].read()
+                return base64.b64encode(data).decode("utf-8")
+            except Exception as e:
+                return e
+
         async with session.client(
             "s3",
             endpoint_url=self.endpoint_url,
@@ -76,11 +85,9 @@ class S3StorageService(IStorageService):
                 response_checksum_validation="when_required",
             ),
         ) as s3_client:
-            response = await s3_client.get_object(Bucket=self.bucket_name, Key=key)
-            image_data = await response["Body"].read()
-
-        b64_str = base64.b64encode(image_data).decode("utf-8")
-        return b64_str
+            tasks = [fetch_single(s3_client, key) for key in keys]
+            results = await asyncio.gather(*tasks)
+            return results
 
     async def create_zip_from_images(
         self, zip_path: str, image_paths: List[dict], progress_callback=None
