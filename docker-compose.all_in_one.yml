@@ -167,7 +167,7 @@ services:
       - ./main_api:/app
       - main_api_venv:/app/.venv
     command: >
-      bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app flower --port=5555; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app flower --port=5555; fi'
+      bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app flower --port=5555 --broker_api=http://$$RABBITMQ_DEFAULT_USER:$$RABBITMQ_DEFAULT_PASS@es-rabbitmq:15672/api/; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app flower --port=5555 --broker_api=http://$$RABBITMQ_DEFAULT_USER:$$RABBITMQ_DEFAULT_PASS@es-rabbitmq:15672/api/; fi'
     depends_on:
       es-rabbitmq:
         condition: service_healthy
