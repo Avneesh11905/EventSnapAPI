@@ -6,7 +6,6 @@ from typing import List, Optional
 
 class EncodeEventRequest(BaseModel):
     event_code: str
-    max_faces: int = 0
     detection_conf: float = 0.5
     nms_threshold: float = 0.4
 

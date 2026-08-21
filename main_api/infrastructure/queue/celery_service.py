@@ -8,14 +8,13 @@ class CeleryTaskQueueService(ITaskQueueService):
     def enqueue_encode_event(
         self,
         folder_path: str,
-        max_faces: int,
         detection_conf: float,
         nms_threshold: float,
     ) -> str:
         from infrastructure.queue.celery_workers import encode_event_task
 
         task = encode_event_task.delay(
-            folder_path, max_faces, detection_conf, nms_threshold
+            folder_path, detection_conf, nms_threshold
         )
         return task.id
 
@@ -23,14 +22,13 @@ class CeleryTaskQueueService(ITaskQueueService):
         self,
         event_code: str,
         keys: list[str],
-        max_faces: int,
         detection_conf: float,
         nms_threshold: float,
     ) -> str:
         from infrastructure.queue.celery_workers import encode_image_batch_task
 
         task = encode_image_batch_task.delay(
-            event_code, keys, max_faces, detection_conf, nms_threshold
+            event_code, keys, detection_conf, nms_threshold
         )
         return task.id
 

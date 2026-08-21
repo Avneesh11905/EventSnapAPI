@@ -5,7 +5,6 @@ class ITaskQueueService(Protocol):
     def enqueue_encode_event(
         self,
         folder_path: str,
-        max_faces: int,
         detection_conf: float,
         nms_threshold: float,
     ) -> str:
@@ -16,7 +15,6 @@ class ITaskQueueService(Protocol):
         self,
         event_code: str,
         keys: list[str],
-        max_faces: int,
         detection_conf: float,
         nms_threshold: float,
     ) -> str:
