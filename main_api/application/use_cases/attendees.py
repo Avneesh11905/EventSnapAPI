@@ -11,6 +11,7 @@ from domain.exceptions import (
     InvalidReferenceImagesError,
     EventNotFoundError,
     NoMatchesFoundError,
+    MultipleFacesDetectedError,
 )
 from config import settings
 
@@ -28,6 +29,17 @@ class EncodeAttendeeUseCase:
                 "Must provide exactly 3 attendee images (front, left, right)."
             )
 
+        # 1. Validation Step: Check original images for multiple faces
+        original_results = await self.inference_service.get_face_encodings(attendee_images_base64)
+        for i, image_faces in enumerate(original_results):
+            if len(image_faces) > 1:
+                bboxes = [face["bbox"] for face in image_faces]
+                raise MultipleFacesDetectedError(
+                    "More than 1 person detected in an attendee picture.",
+                    details=[{"image_index": i, "bboxes": bboxes}],
+                )
+
+        # 2. Execution Step: Augment and process
         augmented_b64_images = await asyncio.to_thread(
             self.augmenter.augment, attendee_images_base64
         )
