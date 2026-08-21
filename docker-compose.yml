@@ -31,6 +31,11 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks: *networks
 
   es-inference-api: 
@@ -58,7 +63,7 @@ services:
     env_file: *env-file
     depends_on:
       es-rabbitmq:
-        condition: service_started
+        condition: service_healthy
       es-db-migration:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -68,9 +73,14 @@ services:
     image: *main-api-image
     command: celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4
     env_file: *env-file
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A infrastructure.queue.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
     depends_on:
       es-rabbitmq:
-        condition: service_started
+        condition: service_healthy
       es-db-migration:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -83,8 +93,8 @@ services:
     env_file: *env-file
     depends_on:
       es-rabbitmq:
-        condition: service_started
-      es-db-migration:
-        condition: service_completed_successfully
+        condition: service_healthy
+      es-celery-worker:
+        condition: service_healthy
     restart: unless-stopped
     networks: *networks

@@ -13,7 +13,7 @@ x-host-and-networks-config: &host-and-networks
 
 x-main-api-and-celery-deps: &main-api-and-celery-deps
   es-rabbitmq:
-    condition: service_started
+    condition: service_healthy
   es-db_migration:
     condition: service_completed_successfully
   es-inference_api:
@@ -43,6 +43,11 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./config/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks: *networks
       
   es-inference_api:
@@ -108,6 +113,11 @@ services:
       - main_api_venv:/app/.venv
     command: >
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app worker --loglevel=info --concurrency=4; fi'
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A infrastructure.queue.celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
     depends_on: *main-api-and-celery-deps
     restart: unless-stopped
     <<: *host-and-networks
@@ -126,6 +136,8 @@ services:
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app flower --port=5555; else watchmedo auto-restart --directory=/app --pattern="*.py" --recursive -- celery -A infrastructure.queue.celery_app flower --port=5555; fi'
     depends_on:
       es-rabbitmq:
-        condition: service_started
+        condition: service_healthy
+      es-celery_worker:
+        condition: service_healthy
     restart: unless-stopped
     <<: *host-and-networks
