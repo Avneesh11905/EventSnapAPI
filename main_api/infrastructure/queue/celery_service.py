@@ -13,9 +13,7 @@ class CeleryTaskQueueService(ITaskQueueService):
     ) -> str:
         from infrastructure.queue.celery_workers import encode_event_task
 
-        task = encode_event_task.delay(
-            folder_path, detection_conf, nms_threshold
-        )
+        task = encode_event_task.delay(folder_path, detection_conf, nms_threshold)
         return task.id
 
     def enqueue_encode_batch(
