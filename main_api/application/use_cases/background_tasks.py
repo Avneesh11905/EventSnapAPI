@@ -3,7 +3,6 @@ from application.ports.storage import IStorageService
 from application.ports.inference import IInferenceService
 from application.ports.uow import IUnitOfWork
 from application.ports.queue import ITaskQueueService
-import asyncio
 from typing import Callable, Any
 import uuid
 from domain.exceptions import ZipGenerationError, StorageDownloadError, InferenceError
@@ -33,11 +32,16 @@ class EncodeImageBatchUseCase:
         nms_thresh: float,
     ) -> dict:
 
+        import time
+        import logging
+        logger = logging.getLogger(__name__)
+
+        start_time = time.time()
         batch_thumb_keys = [k.replace("/raw/", "/thumbs/", 1) for k in keys]
-        download_tasks = [
-            self.storage_service.download_image_b64(key) for key in batch_thumb_keys
-        ]
-        b64_images = await asyncio.gather(*download_tasks, return_exceptions=True)
+        b64_images = await self.storage_service.download_images_b64(batch_thumb_keys)
+        
+        dl_time = time.time()
+        logger.info(f"download_images_b64 took {dl_time - start_time:.2f}s for {len(keys)} images")
 
         valid_keys: list[str] = []
         valid_b64: list[str] = []
@@ -58,9 +62,12 @@ class EncodeImageBatchUseCase:
             }
 
         try:
+            inf_start = time.time()
             results = await self.inference_service.get_face_encodings(
                 valid_b64, det_conf, nms_thresh
             )
+            inf_time = time.time()
+            logger.info(f"inference API call took {inf_time - inf_start:.2f}s")
 
             insert_data = []
             for key, image_faces in zip(valid_keys, results):
@@ -78,10 +85,14 @@ class EncodeImageBatchUseCase:
                             )
                         )
 
+            db_start = time.time()
             if insert_data:
                 async with self.uow as uow:
                     await uow.event_repo.save_encodings(insert_data)
                     await uow.commit()
+            db_time = time.time()
+            logger.info(f"Database insert for {len(insert_data)} encodings took {db_time - db_start:.2f}s")
+
             encoded = sum(1 for image_faces in results if any(f.get("embedding") for f in image_faces))
             no_encodings_found = len(keys) - encoded
             return {
@@ -149,72 +160,21 @@ class ProcessEventEncodingUseCase:
         )
 
         batch_size = settings.INFERENCE_BATCH_SIZE
-        task_ids = []
+        chunks = []
         for i in range(0, total_images, batch_size):
-            chunk = new_raw_keys[i : i + batch_size]
-            tid = self.queue_service.enqueue_encode_batch(
-                event_code=event_code,
-                keys=chunk,
-                detection_conf=det_conf,
-                nms_threshold=nms_thresh,
-            )
-            task_ids.append(tid)
+            chunks.append(new_raw_keys[i : i + batch_size])
 
-        import asyncio
-
-        completed_tasks: set[str] = set()
-        total_encoded = 0
-        total_no_encodings = 0
-
-        while len(completed_tasks) < len(task_ids):
-            for tid in task_ids:
-                if tid not in completed_tasks:
-                    status = self.queue_service.get_task_status(tid)
-                    if status.get("status") in ("SUCCESS", "FAILURE"):
-                        completed_tasks.add(tid)
-                        
-                        if status.get("status") == "SUCCESS":
-                            res = status.get("result", {})
-                            if isinstance(res, dict):
-                                total_encoded += res.get("encoded", 0)
-                                total_no_encodings += res.get("no_encodings_found", 0)
-
-            processed_batches = len(completed_tasks)
-            processed_images = min(processed_batches * batch_size, total_images)
-            pct = (
-                int((processed_images / total_images) * 100)
-                if total_images > 0
-                else 100
-            )
-
-            update_state_cb(
-                "PROCESSING",
-                {
-                    "progress": pct,
-                    "processed": processed_images,
-                    "total": total_images,
-                    "skipped": skipped,
-                    "status_msg": f"Processing {processed_images}/{total_images} images...",
-                },
-            )
-            await asyncio.sleep(2)
-
-        update_state_cb(
-            "PROCESSING",
-            {
-                "progress": 100,
-                "processed": total_images,
-                "total": total_images,
-                "skipped": skipped,
-                "status_msg": f"Finished processing {total_images} images.",
-            },
+        group_id = self.queue_service.enqueue_encode_group(
+            event_code=event_code,
+            chunks=chunks,
+            detection_conf=det_conf,
+            nms_threshold=nms_thresh,
         )
 
         return BackgroundEncodingResult(
-            total=len(all_thumb_keys),
+            total=total_images,
             skipped=skipped,
-            encoded=total_encoded,
-            no_encodings_found=total_no_encodings,
+            group_id=group_id,
         )
 
 

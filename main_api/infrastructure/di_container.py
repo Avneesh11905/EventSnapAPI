@@ -18,7 +18,7 @@ from application.use_cases.background_tasks import (
 )
 from infrastructure.database.uow import AsyncSqlAlchemyUnitOfWork
 from infrastructure.storage.s3_service import S3StorageService
-from infrastructure.inference.hf_inference_service import HFInferenceService
+from infrastructure.inference.onnx_inference_service import OnnxInferenceService
 from infrastructure.queue.celery_service import CeleryTaskQueueService
 from infrastructure.image_augmenter import OpenCVImageAugmenter
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -66,7 +66,7 @@ class Container(containers.DeclarativeContainer):
     )
 
     inference_service = providers.Factory(
-        HFInferenceService,
+        OnnxInferenceService,
         api_url=config.inference_url,
     )
 

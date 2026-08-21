@@ -55,6 +55,7 @@ class BackgroundEncodingResult:
     skipped: int = 0
     encoded: int = 0
     no_encodings_found: int = 0
+    group_id: Optional[str] = None
 
 
 @dataclass
