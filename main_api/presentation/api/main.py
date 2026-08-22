@@ -27,7 +27,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+from config import settings
+
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 add_exception_handlers(app)
 
@@ -51,7 +64,9 @@ async def stream_task_status(request: Request, taskId: str):
 
             status = await asyncio.to_thread(use_case.execute, taskId)
 
-            yield {"event": "message", "data": status.model_dump_json()}
+            import json
+            import dataclasses
+            yield {"event": "message", "data": json.dumps(dataclasses.asdict(status))}
 
             if status.state in ["SUCCESS", "FAILURE", "REVOKED"]:
                 yield {"event": "done", "data": "done"}

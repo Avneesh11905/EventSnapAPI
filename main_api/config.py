@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     INFERENCE_BATCH_SIZE: int = 64
     S3_MAX_POOL_CONNECTIONS: int = 64
 
+    CORS_ORIGINS: str = "http://localhost:3000"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
