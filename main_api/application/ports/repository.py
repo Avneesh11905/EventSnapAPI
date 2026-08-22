@@ -25,3 +25,12 @@ class IEventRepository(Protocol):
         threshold: float,
     ) -> List[str]:
         pass
+
+    async def save_processed_images(self, processed_data: List[dict]) -> None:
+        pass
+
+    async def delete_keys(self, event_code: str, keys: List[str]) -> None:
+        pass
+
+    async def get_image_status(self, event_code: str) -> dict:
+        pass

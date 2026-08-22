@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from presentation.api.exception_handlers import add_exception_handlers
 from presentation.api.schemas import HealthResponse, TaskStatusResponse
 
-from presentation.api.routers import events, attendees
+from presentation.api.routers import events, attendees, images
 from infrastructure.di_container import get_container
 from sqlalchemy import text
 from infrastructure.queue.celery_app import celery_app
@@ -33,6 +33,33 @@ add_exception_handlers(app)
 
 app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(attendees.router, prefix="/api/attendees", tags=["Attendees"])
+app.include_router(images.router, prefix="/api/images", tags=["Images"])
+
+
+@app.get("/api/tasks/stream", tags=["Tasks"])
+async def stream_task_status(request: Request, taskId: str):
+    """Streams the status of a Celery task using SSE."""
+    from sse_starlette.sse import EventSourceResponse
+    import asyncio
+
+    use_case = container.check_encoding_status_use_case()
+
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+
+            status = await asyncio.to_thread(use_case.execute, taskId)
+
+            yield {"event": "message", "data": status.model_dump_json()}
+
+            if status.state in ["SUCCESS", "FAILURE", "REVOKED"]:
+                yield {"event": "done", "data": "done"}
+                break
+
+            await asyncio.sleep(1)
+
+    return EventSourceResponse(event_generator())
 
 
 @app.get("/api/tasks/{task_id}", tags=["Tasks"], response_model=TaskStatusResponse)

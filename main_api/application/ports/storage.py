@@ -22,3 +22,6 @@ class IStorageService(Protocol):
 
     async def delete_folder(self, prefix: str) -> None:
         pass
+
+    async def delete_objects(self, keys: List[str]) -> None:
+        pass

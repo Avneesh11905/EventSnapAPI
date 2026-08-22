@@ -29,6 +29,8 @@ class Settings(BaseSettings):
 
     INFERENCE_API_URL: str
 
+    VALKEY_URL: str = "redis://localhost:6379/0"
+
     SIMILARITY_THRESHOLD: float = 0.45
     INFERENCE_BATCH_SIZE: int = 64
     S3_MAX_POOL_CONNECTIONS: int = 64

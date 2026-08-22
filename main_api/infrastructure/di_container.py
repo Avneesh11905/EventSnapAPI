@@ -15,11 +15,13 @@ from application.use_cases.background_tasks import (
     ProcessEventEncodingUseCase,
     CreateEventZipUseCase,
     EncodeImageBatchUseCase,
+    DeleteImageBatchUseCase,
 )
 from infrastructure.database.uow import AsyncSqlAlchemyUnitOfWork
 from infrastructure.storage.s3_service import S3StorageService
 from infrastructure.inference.onnx_inference_service import OnnxInferenceService
 from infrastructure.queue.celery_service import CeleryTaskQueueService
+from infrastructure.cache.valkey_service import ValkeyCacheService
 from infrastructure.image_augmenter import OpenCVImageAugmenter
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from config import settings
@@ -31,6 +33,7 @@ class Container(containers.DeclarativeContainer):
         modules=[
             "presentation.api.routers.events",
             "presentation.api.routers.attendees",
+            "presentation.api.routers.images",
             "infrastructure.queue.celery_workers",
         ]
     )
@@ -72,6 +75,10 @@ class Container(containers.DeclarativeContainer):
 
     queue_service = providers.Factory(CeleryTaskQueueService)
 
+    cache_service = providers.Factory(
+        ValkeyCacheService, valkey_url=settings.VALKEY_URL
+    )
+
     image_augmenter = providers.Factory(OpenCVImageAugmenter)
 
     start_event_encoding_use_case = providers.Factory(
@@ -109,6 +116,7 @@ class Container(containers.DeclarativeContainer):
         storage_service=storage_service,
         uow=uow,
         queue_service=queue_service,
+        cache_service=cache_service,
     )
 
     encode_image_batch_use_case = providers.Factory(
@@ -120,6 +128,12 @@ class Container(containers.DeclarativeContainer):
 
     create_event_zip_use_case = providers.Factory(
         CreateEventZipUseCase, storage_service=storage_service
+    )
+
+    delete_image_batch_use_case = providers.Factory(
+        DeleteImageBatchUseCase,
+        storage_service=storage_service,
+        uow=uow,
     )
 
 

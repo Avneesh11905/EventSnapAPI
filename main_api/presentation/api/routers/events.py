@@ -73,7 +73,7 @@ async def get_encoding_status(
         progress=progress,
         images_processed=images_processed,
         total_images=total_images,
-        message=message
+        message=message,
     )
 
 

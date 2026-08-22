@@ -87,8 +87,8 @@ def create_event_zip_task(self, event_id: str, user_id: str, image_paths: list[d
 
 
 @shared_task(
-    bind=True, 
-    name="delete_event_data_task", 
+    bind=True,
+    name="delete_event_data_task",
     acks_late=True,
     autoretry_for=(Exception,),
     retry_kwargs={"max_retries": 5},
@@ -104,13 +104,13 @@ def delete_event_data_task(self, event_code: str, event_id: str | None = None):
             async with uow:
                 await uow.event_repo.delete_event_data(event_code)
                 await uow.commit()
-                
+
             await storage.delete_folder(f"event/{event_code}/")
             msg = f"Successfully deleted event {event_code} from database and removed 'event/{event_code}/' from storage."
             if event_id:
                 await storage.delete_folder(f"zip/{event_id}/")
                 msg = f"Successfully deleted event {event_code} from database and removed 'event/{event_code}/' and 'zip/{event_id}/' from storage."
-                
+
             return {"success": True, "message": msg}
         except Exception as e:
             self.update_state(
@@ -122,3 +122,31 @@ def delete_event_data_task(self, event_code: str, event_id: str | None = None):
             raise
 
     return asyncio.run(_delete())
+
+
+@shared_task(
+    bind=True,
+    name="delete_image_batch_task",
+    acks_late=True,
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 5},
+    retry_backoff=True,
+)
+def delete_image_batch_task(
+    self, event_code: str, keys: list[str], cancel_task_id: str | None = None
+):
+    container = get_container()
+    use_case = container.delete_image_batch_use_case()
+
+    def update_state_cb(state_name, meta_dict):
+        self.update_state(state=state_name, meta=meta_dict)
+
+    result = asyncio.run(
+        use_case.execute(
+            event_code=event_code,
+            keys=keys,
+            cancel_task_id=cancel_task_id,
+            update_state_cb=update_state_cb,
+        )
+    )
+    return result

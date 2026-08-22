@@ -1,6 +1,7 @@
 from typing import Protocol
 from application.dtos import TaskStatusDTO
 
+
 class ITaskQueueService(Protocol):
     def enqueue_encode_event(
         self,

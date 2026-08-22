@@ -24,6 +24,7 @@ class OnnxInferenceService(IInferenceService):
 
         import time
         import logging
+
         logger = logging.getLogger(__name__)
 
         async with httpx.AsyncClient(timeout=None) as client:
@@ -33,7 +34,7 @@ class OnnxInferenceService(IInferenceService):
             )
             t1 = time.time()
             logger.info(f"httpx.post (headers+body) took {t1 - t0:.2f}s")
-            
+
             response.raise_for_status()
 
             t2 = time.time()

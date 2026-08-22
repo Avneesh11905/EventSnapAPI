@@ -1,6 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from domain.exceptions import EventSnapError, EventNotFoundError, NoMatchesFoundError
+from domain.exceptions import (
+    EventSnapError,
+    EventNotFoundError,
+    NoMatchesFoundError,
+    TaskAlreadyInProgressError,
+)
 
 
 def add_exception_handlers(app: FastAPI):
@@ -9,6 +14,8 @@ def add_exception_handlers(app: FastAPI):
         status_code = 400
         if isinstance(exc, (EventNotFoundError, NoMatchesFoundError)):
             status_code = 404
+        elif isinstance(exc, TaskAlreadyInProgressError):
+            status_code = 409
 
         content = {"error": str(exc), "type": exc.__class__.__name__}
         if hasattr(exc, "details") and exc.details:

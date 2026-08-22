@@ -35,7 +35,7 @@ async def predict(
         InferenceParametersDTO(
             max_faces=max_faces,
             detection_conf=request.parameters.detection_conf,
-            nms_threshold=request.parameters.nms_threshold
+            nms_threshold=request.parameters.nms_threshold,
         ),
     )
 

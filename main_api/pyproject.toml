@@ -20,10 +20,11 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "pydantic-settings>=2.2.1",
     "python-multipart>=0.0.9",
-    "redis>=8.1.0",
     "sqlalchemy>=2.0.29",
     "tenacity>=8.2.3",
     "uvicorn>=0.29.0",
+    "sse-starlette>=3.4.8",
+    "valkey>=6.1.1",
 ]
 
 [dependency-groups]

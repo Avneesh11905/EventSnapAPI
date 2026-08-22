@@ -36,3 +36,7 @@ class InferenceError(EventSnapError):
 
 class NoMatchesFoundError(EventSnapError):
     pass
+
+
+class TaskAlreadyInProgressError(EventSnapError):
+    pass

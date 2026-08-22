@@ -25,7 +25,7 @@ class CeleryTaskQueueService(ITaskQueueService):
     ) -> str:
         from celery import group
         from infrastructure.queue.celery_workers import encode_image_batch_task
-        
+
         job = group(
             encode_image_batch_task.s(event_code, chunk, detection_conf, nms_threshold)
             for chunk in chunks
@@ -57,23 +57,34 @@ class CeleryTaskQueueService(ITaskQueueService):
 
         if res.ready():
             if res.successful():
-                status_result = res.result if isinstance(res.result, dict) else {"result": res.result}
+                status_result = (
+                    res.result
+                    if isinstance(res.result, dict)
+                    else {"result": res.result}
+                )
                 # Check if this task delegated to a group
                 if isinstance(res.result, dict) and "group_id" in res.result:
                     group_id = res.result["group_id"]
                     if group_id:
                         from celery.result import GroupResult
+
                         group = GroupResult.restore(group_id, app=celery_app)
                         if group:
                             completed = group.completed_count()
                             total = len(group)
                             if not group.ready():
                                 state = "PROCESSING"
-                                status_info["progress"] = int((completed / total) * 100) if total else 0
+                                status_info["progress"] = (
+                                    int((completed / total) * 100) if total else 0
+                                )
                                 # Multiply batches by batch size to get image count, capped at total
                                 from config import settings
+
                                 total_images = res.result.get("total", total)
-                                status_info["processed"] = min(completed * settings.INFERENCE_BATCH_SIZE, total_images)
+                                status_info["processed"] = min(
+                                    completed * settings.INFERENCE_BATCH_SIZE,
+                                    total_images,
+                                )
                                 status_info["total"] = total_images
             else:
                 try:
@@ -88,7 +99,5 @@ class CeleryTaskQueueService(ITaskQueueService):
                 status_info.update(info)
 
         return TaskStatusDTO(
-            state=state,
-            info=status_info if status_info else None,
-            result=status_result
+            state=state, info=status_info if status_info else None, result=status_result
         )

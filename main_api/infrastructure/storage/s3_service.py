@@ -66,7 +66,7 @@ class S3StorageService(IStorageService):
     )
     async def download_images_b64(self, keys: List[str]) -> List[str | Exception]:
         session = self._get_session()
-        
+
         async def fetch_single(client, k):
             try:
                 res = await client.get_object(Bucket=self.bucket_name, Key=k)
@@ -185,3 +185,14 @@ class S3StorageService(IStorageService):
                             Bucket=self.bucket_name,
                             Delete={"Objects": objects_to_delete, "Quiet": True},
                         )
+
+    async def delete_objects(self, keys: List[str]) -> None:
+        if not keys:
+            return
+        session = self._get_session()
+        async with session.client("s3", endpoint_url=self.endpoint_url) as s3:
+            objects_to_delete = [{"Key": k} for k in keys]
+            await s3.delete_objects(
+                Bucket=self.bucket_name,
+                Delete={"Objects": objects_to_delete, "Quiet": True},
+            )
