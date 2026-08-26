@@ -1,14 +1,14 @@
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from presentation.api.exception_handlers import add_exception_handlers
 from presentation.api.schemas import HealthResponse, TaskStatusResponse
-
 from presentation.api.routers import events, attendees, images
 from infrastructure.di_container import get_container
-from sqlalchemy import text
 from infrastructure.queue.celery_app import celery_app
-
+from sqlalchemy import text
+from config import settings
+from contextlib import asynccontextmanager
 import logging
 
 container = get_container()
@@ -26,9 +26,6 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan,
 )
-
-from fastapi.middleware.cors import CORSMiddleware
-from config import settings
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 

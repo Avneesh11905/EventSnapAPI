@@ -40,3 +40,7 @@ class NoMatchesFoundError(EventSnapError):
 
 class TaskAlreadyInProgressError(EventSnapError):
     pass
+
+
+class TaskCanceledError(EventSnapError):
+    pass

@@ -19,7 +19,11 @@ class DeleteBulkResponse(BaseModel):
 
 
 @router.post("/delete-bulk", response_model=DeleteBulkResponse)
-async def delete_bulk_images(request: DeleteBulkRequest):
+@inject
+async def delete_bulk_images(
+    request: DeleteBulkRequest,
+    queue_service=Depends(Provide[Container.queue_service])
+):
     task = delete_image_batch_task.delay(
         event_code=request.event_code,
         keys=request.keys,

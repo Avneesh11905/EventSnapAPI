@@ -9,3 +9,11 @@ class ICacheService(Protocol):
     async def release_lock(self, lock_name: str) -> None:
         """Releases the lock."""
         pass
+
+    async def set_flag(self, key: str, expiration: int) -> None:
+        """Sets a boolean flag with an expiration."""
+        pass
+
+    async def get_flag(self, key: str) -> bool:
+        """Gets a boolean flag."""
+        pass

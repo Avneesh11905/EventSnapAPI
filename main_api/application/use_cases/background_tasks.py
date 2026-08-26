@@ -3,9 +3,9 @@ from application.ports.storage import IStorageService
 from application.ports.inference import IInferenceService
 from application.ports.uow import IUnitOfWork
 from application.ports.queue import ITaskQueueService
+from application.ports.cache import ICacheService
 from typing import Callable
 import uuid
-from domain.exceptions import ZipGenerationError, InferenceError
 from application.dtos import (
     BackgroundEncodingResult,
     BackgroundZipResult,
@@ -19,10 +19,12 @@ class EncodeImageBatchUseCase:
         storage_service: IStorageService,
         inference_service: IInferenceService,
         uow: IUnitOfWork,
+        cache_service: ICacheService,
     ):
         self.storage_service = storage_service
         self.inference_service = inference_service
         self.uow = uow
+        self.cache_service = cache_service
 
     async def execute(
         self,
@@ -36,6 +38,13 @@ class EncodeImageBatchUseCase:
         import logging
 
         logger = logging.getLogger(__name__)
+
+        # Check if event was deleted BEFORE we even start downloading images
+        is_canceled = await self.cache_service.get_flag(f"cancel_encode:{event_code}")
+        if is_canceled:
+            logger.warning(f"Event {event_code} was deleted before batch started. Aborting immediately.")
+            from domain.exceptions import TaskCanceledError
+            raise TaskCanceledError(f"Event {event_code} was deleted.")
 
         start_time = time.time()
         batch_thumb_keys = [k.replace("/raw/", "/thumbs/", 1) for k in keys]
@@ -93,6 +102,14 @@ class EncodeImageBatchUseCase:
                         )
 
             db_start = time.time()
+            
+            # Check if this event was deleted while we were encoding
+            is_canceled = await self.cache_service.get_flag(f"cancel_encode:{event_code}")
+            if is_canceled:
+                logger.warning(f"Event {event_code} was deleted during batch processing. Aborting insert.")
+                from domain.exceptions import TaskCanceledError
+                raise TaskCanceledError(f"Event {event_code} was deleted.")
+                
             async with self.uow as uow:
                 if insert_data:
                     await uow.event_repo.save_encodings(insert_data)
@@ -123,6 +140,9 @@ class EncodeImageBatchUseCase:
                 "failures": failed_keys,
             }
         except Exception as e:
+            from domain.exceptions import TaskCanceledError, InferenceError
+            if isinstance(e, TaskCanceledError):
+                raise
             raise InferenceError(f"Failed to infer batch: {e}") from e
 
 
@@ -132,7 +152,7 @@ class ProcessEventEncodingUseCase:
         storage_service: IStorageService,
         uow: IUnitOfWork,
         queue_service: ITaskQueueService,
-        cache_service,
+        cache_service: ICacheService,
     ):
         self.storage_service = storage_service
         self.uow = uow
@@ -233,6 +253,7 @@ class CreateEventZipUseCase:
     ) -> BackgroundZipResult:
         total = len(image_paths)
         if total == 0:
+            from domain.exceptions import ZipGenerationError
             raise ZipGenerationError("No images to zip")
 
         update_state_cb(
@@ -308,8 +329,9 @@ class DeleteImageBatchUseCase:
             logger.info(f"Deleted S3 chunk of {len(chunk)} objects")
 
         # DB Deletion
+        raw_keys = [k.replace("/thumbs/", "/raw/", 1) for k in keys]
         async with self.uow as uow:
-            await uow.event_repo.delete_keys(event_code, keys)
+            await uow.event_repo.delete_keys(event_code, raw_keys)
             await uow.commit()
 
         update_state_cb(

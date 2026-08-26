@@ -73,10 +73,12 @@ class Container(containers.DeclarativeContainer):
         api_url=config.inference_url,
     )
 
-    queue_service = providers.Factory(CeleryTaskQueueService)
-
     cache_service = providers.Factory(
         ValkeyCacheService, valkey_url=settings.VALKEY_URL
+    )
+
+    queue_service = providers.Factory(
+        CeleryTaskQueueService, cache_service=cache_service
     )
 
     image_augmenter = providers.Factory(OpenCVImageAugmenter)
@@ -124,6 +126,7 @@ class Container(containers.DeclarativeContainer):
         storage_service=storage_service,
         inference_service=inference_service,
         uow=uow,
+        cache_service=cache_service,
     )
 
     create_event_zip_use_case = providers.Factory(

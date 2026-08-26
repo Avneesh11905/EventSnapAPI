@@ -33,5 +33,9 @@ class ITaskQueueService(Protocol):
         pass
 
     def enqueue_delete_event(self, event_code: str, event_id: str | None = None) -> str:
-        """Returns the task ID"""
+        """Enqueues a task to delete all event data from the database and storage."""
+        pass
+
+    async def cancel_event_tasks(self, event_code: str) -> None:
+        """Cancels all active and queued tasks related to the given event_code."""
         pass

@@ -4,7 +4,12 @@ from application.dtos import TaskStatusDTO
 from infrastructure.queue.celery_app import celery_app
 
 
+from application.ports.cache import ICacheService
+
 class CeleryTaskQueueService(ITaskQueueService):
+    def __init__(self, cache_service: ICacheService):
+        self.cache_service = cache_service
+
     def enqueue_encode_event(
         self,
         folder_path: str,
@@ -47,6 +52,34 @@ class CeleryTaskQueueService(ITaskQueueService):
 
         task = delete_event_data_task.delay(event_code, event_id)
         return task.id
+
+    async def cancel_event_tasks(self, event_code: str) -> None:
+        try:
+            import logging
+            logger = logging.getLogger(__name__)
+            i = celery_app.control.inspect()
+            active_tasks = i.active() or {}
+            reserved_tasks = i.reserved() or {}
+            
+            tasks_to_revoke = []
+            
+            for worker, tasks in list(active_tasks.items()) + list(reserved_tasks.items()):
+                for task in tasks:
+                    if task["name"] in ["encode_event_task", "encode_image_batch_task"]:
+                        args = task.get("args", [])
+                        if len(args) > 0 and args[0] == event_code:
+                            tasks_to_revoke.append(task["id"])
+            
+            for tid in tasks_to_revoke:
+                logger.info(f"Revoking Celery task {tid} for event {event_code}")
+                celery_app.control.revoke(tid, terminate=True)
+                
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to cancel tasks for event {event_code}: {e}")
+
+        # Always set the valkey flag to poison any un-fetched tasks in the queue
+        await self.cache_service.set_flag(f"cancel_encode:{event_code}", expiration=3600)
 
     def get_task_status(self, task_id: str) -> TaskStatusDTO:
         res = AsyncResult(task_id, app=celery_app)
