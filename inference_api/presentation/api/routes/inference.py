@@ -13,7 +13,6 @@ from infrastructure.di_container import Container
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-inference_executor = ThreadPoolExecutor(max_workers=1)
 
 
 @router.post("/", response_model=InferenceResponse)
@@ -23,13 +22,17 @@ async def predict(
     use_case: ProcessImagesUseCase = Depends(
         Provide[Container.process_images_use_case]
     ),
+    executor: ThreadPoolExecutor = Depends(
+        Provide[Container.inference_executor]
+    ),
 ):
+    logger.info(f"[HTTP] Received request for {len(request.inputs)} images")
     tt = time.perf_counter()
     max_faces_param = request.parameters.max_faces
     max_faces = 0 if max_faces_param == "all" else int(max_faces_param)
 
     result = await asyncio.get_running_loop().run_in_executor(
-        inference_executor,
+        executor,
         use_case.execute,
         request.inputs,
         InferenceParametersDTO(
@@ -40,5 +43,5 @@ async def predict(
     )
 
     tt = time.perf_counter() - tt
-    logger.info(f"Time taken: {tt}")
+    logger.info(f"[HTTP] Time taken: {tt}")
     return result

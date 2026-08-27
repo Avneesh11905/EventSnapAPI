@@ -2,6 +2,7 @@ name: eventsnap
 
 x-env-file: &env-file
   - .env
+
 x-networks: &networks
   - Eventsnap-Network
   # - Infrastructure-Network
@@ -61,6 +62,7 @@ services:
       - inference_api_venv:/app/.venv
     ports:
       - "5000:5000"
+      - "50051:50051"
     restart: unless-stopped
     command: >
       bash -c 'if [ -n "$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" ] && [ -z "$$INFISICAL_TOKEN" ]; then export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id="$$INFISICAL_MACHINE_IDENTITY_CLIENT_ID" --client-secret="$$INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET" --plain --silent); fi; if [ -n "$$INFISICAL_TOKEN" ]; then infisical run --projectId "$$INFISICAL_PROJECT_ID" --env="$${INFISICAL_ENVIRONMENT:-dev}" -- uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; else uv run uvicorn presentation.api.main:app --host 0.0.0.0 --port 5000 --reload; fi'

@@ -18,16 +18,18 @@ class ProcessImagesUseCase:
         self.image_decoder = image_decoder
 
     def execute(
-        self, inputs: list[str], parameters: InferenceParametersDTO
+        self, inputs: list[str] | list[bytes], parameters: InferenceParametersDTO
     ) -> InferenceResultDTO:
         max_faces = parameters.max_faces
         detection_conf = parameters.detection_conf
         nms_thresh = parameters.nms_threshold
 
         try:
-            logger.info(f"Processing inference for {len(inputs)} images")
-
+            import time
+            t0 = time.perf_counter()
             cv_images = self.image_decoder.decode_batch(inputs)
+            t_decode = time.perf_counter()
+            logger.info(f"decode_batch took: {t_decode - t0:.4f}s")
 
             batch_faces = self.detector.detect_batch(
                 cv_images,
@@ -35,6 +37,8 @@ class ProcessImagesUseCase:
                 confidence=detection_conf,
                 nms_threshold=nms_thresh,
             )
+            t_detect = time.perf_counter()
+            logger.info(f"detect_batch took: {t_detect - t_decode:.4f}s")
 
             final_results: list[list[FaceResultDTO]] = [
                 [] for _ in range(len(cv_images))
@@ -49,8 +53,13 @@ class ProcessImagesUseCase:
                         all_aligned_faces.append(aligned)
                         face_mapping.append((img_idx, face_idx))
 
+            t_align = time.perf_counter()
+            logger.info(f"align took: {t_align - t_detect:.4f}s")
+
             if all_aligned_faces:
                 all_embeddings = self.embedder.embed_batch(all_aligned_faces)
+                t_embed = time.perf_counter()
+                logger.info(f"embed_batch took: {t_embed - t_align:.4f}s")
 
                 for (img_idx, face_idx), emb in zip(face_mapping, all_embeddings):
                     face_obj = batch_faces[img_idx][face_idx]
@@ -61,6 +70,9 @@ class ProcessImagesUseCase:
                             embedding=emb.tolist(),
                         )
                     )
+
+            t_final = time.perf_counter()
+            logger.info(f"map_results took: {t_final - (t_embed if all_aligned_faces else t_align):.4f}s")
 
             return InferenceResultDTO(batch_faces=final_results)
 

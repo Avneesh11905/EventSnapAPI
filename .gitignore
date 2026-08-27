@@ -1,6 +1,6 @@
-images/
-data/
-tests/
+/images/
+/data/
+/tests/
 /**/__pycache__
 /**/.env*
 

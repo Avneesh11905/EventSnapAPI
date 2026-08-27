@@ -2,14 +2,23 @@ from dependency_injector import containers, providers
 from application.use_cases.inference import ProcessImagesUseCase
 from infrastructure.onnx.detector import FaceDetector
 from infrastructure.onnx.embedder import FaceEmbedder
-from infrastructure.image_decoder import Base64ImageDecoder
+from infrastructure.image_decoder import Base64ImageDecoder, BytesImageDecoder
 
+
+from concurrent.futures import ThreadPoolExecutor
 
 class Container(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(
         modules=[
             "presentation.api.routes.inference",
         ]
+    )
+
+    # Shared thread pool to ensure ONNX models (not thread-safe)
+    # only process one request at a time across both HTTP and gRPC.
+    inference_executor = providers.Singleton(
+        ThreadPoolExecutor,
+        max_workers=1,
     )
 
     face_detector = providers.Singleton(
@@ -34,6 +43,15 @@ class Container(containers.DeclarativeContainer):
         detector=face_detector,
         embedder=face_embedder,
         image_decoder=image_decoder,
+    )
+
+    bytes_image_decoder = providers.Singleton(BytesImageDecoder)
+
+    process_images_bytes_use_case = providers.Factory(
+        ProcessImagesUseCase,
+        detector=face_detector,
+        embedder=face_embedder,
+        image_decoder=bytes_image_decoder,
     )
 
 
