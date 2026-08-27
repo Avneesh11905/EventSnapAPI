@@ -2,7 +2,7 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, String, Float, Index, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from pgvector.sqlalchemy import Vector
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
@@ -38,7 +38,7 @@ class ProcessedImageModel(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid7)
     event_code = Column(String, index=True)
     image_path = Column(String, index=True)
-    processed_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         # Ensure we don't insert duplicate log entries if a task retries

@@ -25,8 +25,8 @@ class OnnxInferenceService(IInferenceService[str]):
         import logging
 
         logger = logging.getLogger(__name__)
-
-        async with httpx.AsyncClient(timeout=None) as client:
+        # using a 60s timeout to prevent hanging if inference server dies
+        async with httpx.AsyncClient(timeout=150.0) as client:
             t0 = time.time()
             response = await client.post(
                 f"{self.api_url}/", json=payload, headers=headers

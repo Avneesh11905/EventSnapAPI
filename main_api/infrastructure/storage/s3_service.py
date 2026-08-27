@@ -89,7 +89,7 @@ class S3StorageService(IStorageService):
         ) as s3_client:
             tasks = [fetch_single(s3_client, key) for key in keys]
             results = await asyncio.gather(*tasks)
-            return results
+            print('results in s3:', results); return results
 
 
 class S3StorageServiceB64(S3StorageService):

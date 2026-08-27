@@ -13,3 +13,8 @@
 *.env
 !dev.env
 !all_in_one.env
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml

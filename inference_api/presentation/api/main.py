@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
-import uvicorn
 from fastapi.middleware.gzip import GZipMiddleware
 from grpc import aio as grpc_aio
 from grpc_reflection.v1alpha import reflection
@@ -87,12 +86,5 @@ async def health_check():
     return {"status": "ok", "grpc_port": GRPC_PORT}
 
 
-if __name__ == "__main__":
-    port = 5000
-    logger.info("=" * 60)
-    logger.info("🚀 Eventsnap Inference Server — dual-protocol mode")
-    logger.info(f"   HTTP  →  http://0.0.0.0:{port}/")
-    logger.info(f"   gRPC  →  0.0.0.0:{GRPC_PORT}")
-    logger.info(f"   Docs  →  http://0.0.0.0:{port}/docs")
-    logger.info("=" * 60)
-    uvicorn.run(app="presentation.api.main:app", host="0.0.0.0", port=port)
+
+

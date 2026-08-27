@@ -27,7 +27,7 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("event_code", sa.String(), nullable=True),
         sa.Column("image_path", sa.String(), nullable=True),
-        sa.Column("processed_at", sa.DateTime(), nullable=True),
+        sa.Column("processed_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
