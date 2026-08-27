@@ -28,7 +28,6 @@ dependencies = [
     "grpcio>=1.83.0",
     "grpcio-tools>=1.83.0",
     "redis>=8.1.0",
-    "ruff>=0.16.4",
 ]
 
 [dependency-groups]
@@ -39,6 +38,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-celery>=1.3.0",
     "pytest-cov>=7.1.0",
+    "ruff>=0.16.4",
     "testcontainers[postgres,rabbitmq,redis]>=4.15.0",
     "vulture>=2.16",
     "watchdog>=4.0.0",

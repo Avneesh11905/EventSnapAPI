@@ -395,7 +395,6 @@ dependencies = [
     { name = "onnxruntime-gpu" },
     { name = "opencv-python-headless" },
     { name = "python-multipart" },
-    { name = "ruff" },
     { name = "uvicorn" },
 ]
 
@@ -405,6 +404,7 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "ruff" },
     { name = "watchdog" },
 ]
 
@@ -420,7 +420,6 @@ requires-dist = [
     { name = "onnxruntime-gpu", specifier = "==1.19.2" },
     { name = "opencv-python-headless", specifier = ">=4.9.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
-    { name = "ruff", specifier = ">=0.16.4" },
     { name = "uvicorn", specifier = ">=0.52.3" },
 ]
 
@@ -430,6 +429,7 @@ dev = [
     { name = "mypy", specifier = ">=2.3.1" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
+    { name = "ruff", specifier = ">=0.16.4" },
     { name = "watchdog", specifier = ">=4.0.0" },
 ]
 
