@@ -25,6 +25,8 @@ dependencies = [
     "uvicorn>=0.29.0",
     "sse-starlette>=3.4.8",
     "valkey>=6.1.1",
+    "grpcio>=1.83.0",
+    "grpcio-tools>=1.83.0",
 ]
 
 [dependency-groups]

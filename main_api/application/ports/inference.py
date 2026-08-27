@@ -1,17 +1,17 @@
-from typing import List, Dict, Protocol
+from typing import Protocol
 
 
-class IInferenceService(Protocol):
+class IInferenceService[T](Protocol):
     async def get_face_encodings(
         self,
-        b64_images: List[str],
+        images: list[T],
         detection_conf: float = 0.5,
         nms_threshold: float = 0.4,
-    ) -> List[List[Dict]]:
+    ) -> list[list[dict]]:
         """
         Returns a list of lists of face dictionaries.
-        Outer list corresponds to the input b64_images.
+        Outer list corresponds to the input images.
         Inner list contains the faces found in that image.
         Each face dict has 'embedding' and 'confidence'.
         """
-        pass
+        ...

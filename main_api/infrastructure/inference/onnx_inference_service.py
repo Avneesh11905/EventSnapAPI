@@ -1,21 +1,20 @@
 from application.ports.inference import IInferenceService
 import httpx
-from typing import List, Dict
 
 
-class OnnxInferenceService(IInferenceService):
+class OnnxInferenceService(IInferenceService[str]):
     def __init__(self, api_url: str):
         self.api_url = api_url
 
     async def get_face_encodings(
         self,
-        b64_images: List[str],
+        images: list[str],
         detection_conf: float = 0.5,
         nms_threshold: float = 0.4,
-    ) -> List[List[Dict]]:
+    ) -> list[list[dict]]:
         headers = {"Content-Type": "application/json"}
         payload = {
-            "inputs": b64_images,
+            "inputs": images,
             "parameters": {
                 "detection_conf": detection_conf,
                 "nms_threshold": nms_threshold,

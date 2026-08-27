@@ -55,6 +55,11 @@ class PostgresEventRepository(IEventRepository):
         )
         await self.session.execute(stmt)
 
+        stmt_processed = delete(ProcessedImageModel).where(
+            ProcessedImageModel.event_code == event_code
+        )
+        await self.session.execute(stmt_processed)
+
     async def find_matches(
         self,
         event_code: str,

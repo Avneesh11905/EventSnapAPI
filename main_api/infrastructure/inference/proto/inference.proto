@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package inference;
+
+// The face inference service.
+service FaceInference {
+  // Accepts a batch of raw image bytes, returns detected face embeddings.
+  rpc ExtractFaces(InferenceRequest) returns (InferenceResponse);
+}
+
+// Request message: send raw image bytes directly — no base64 overhead.
+message InferenceRequest {
+  // Each element is the raw binary content of one image file (JPEG/PNG etc.)
+  repeated bytes images = 1;
+
+  // Face detection confidence threshold (default 0.5)
+  float detection_conf = 2;
+
+  // Non-maximum suppression threshold (default 0.4)
+  float nms_threshold = 3;
+
+  // Maximum faces to return per image (0 = unlimited)
+  int32 max_faces = 4;
+}
+
+// A single detected face.
+message FaceResult {
+  // Bounding box: [x1, y1, x2, y2]
+  repeated float bbox = 1;
+
+  // Detection confidence score
+  float confidence = 2;
+
+  // 512-dimensional L2-normalised face embedding
+  repeated float embedding = 3;
+}
+
+// All faces detected in a single image.
+message ImageFaces {
+  repeated FaceResult faces = 1;
+}
+
+// Response: one ImageFaces entry per input image (in the same order).
+message InferenceResponse {
+  repeated ImageFaces results = 1;
+}

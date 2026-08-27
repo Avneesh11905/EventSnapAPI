@@ -16,22 +16,31 @@ from domain.exceptions import (
 from config import settings
 
 
-class EncodeAttendeeUseCase:
+from typing import Callable
+
+
+class EncodeAttendeeUseCase[T]:
     def __init__(
-        self, inference_service: IInferenceService, augmenter: IImageAugmenter
+        self,
+        inference_service: IInferenceService[T],
+        augmenter: IImageAugmenter,
+        decode_fn: Callable[[str], T],
     ):
         self.inference_service = inference_service
         self.augmenter = augmenter
+        self.decode_fn = decode_fn
 
-    async def execute(self, attendee_images_base64: List[str]) -> List[float]:
+    async def execute(self, attendee_images_base64: list[str]) -> list[float]:
         if len(attendee_images_base64) != 3:
             raise InvalidReferenceImagesError(
                 "Must provide exactly 3 attendee images (front, left, right)."
             )
 
+        converted_images = [self.decode_fn(img) for img in attendee_images_base64]
+
         # 1. Validation Step: Check original images for multiple faces or no faces
         original_results = await self.inference_service.get_face_encodings(
-            attendee_images_base64
+            converted_images
         )
 
         validation_errors = []
@@ -77,8 +86,13 @@ class EncodeAttendeeUseCase:
         augmented_b64_images = await asyncio.to_thread(
             self.augmenter.augment, attendee_images_base64
         )
+        converted_augmented_images = [
+            self.decode_fn(img) for img in augmented_b64_images
+        ]
 
-        results = await self.inference_service.get_face_encodings(augmented_b64_images)
+        results = await self.inference_service.get_face_encodings(
+            converted_augmented_images
+        )
 
         embeddings_list = []
         for image_faces in results:

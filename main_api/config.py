@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     STORAGE_BUCKET_NAME: str
 
     INFERENCE_API_URL: str
+    INFERENCE_API_GRPC_URL: str | None = None
 
     VALKEY_URL: str = "redis://localhost:6379/0"
 

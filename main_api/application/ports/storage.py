@@ -1,15 +1,15 @@
-from typing import List, Protocol
+from typing import Protocol
 
 
-class IStorageService(Protocol):
-    async def list_images(self, folder_path: str) -> List[str]:
+class IStorageService[T](Protocol):
+    async def list_images(self, folder_path: str) -> list[str]:
         pass
 
-    async def download_images_b64(self, keys: List[str]) -> List[str | Exception]:
+    async def download_images(self, keys: list[str]) -> list[T | Exception]:
         pass
 
     async def create_zip_from_images(
-        self, zip_path: str, image_paths: List[dict], progress_callback=None
+        self, zip_path: str, image_paths: list[dict], progress_callback=None
     ) -> None:
         """
         Creates a zip file in the storage layer.
@@ -23,5 +23,5 @@ class IStorageService(Protocol):
     async def delete_folder(self, prefix: str) -> None:
         pass
 
-    async def delete_objects(self, keys: List[str]) -> None:
+    async def delete_objects(self, keys: list[str]) -> None:
         pass

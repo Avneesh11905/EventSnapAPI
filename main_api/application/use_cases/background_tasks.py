@@ -13,11 +13,11 @@ from application.dtos import (
 )
 
 
-class EncodeImageBatchUseCase:
+class EncodeImageBatchUseCase[T]:
     def __init__(
         self,
-        storage_service: IStorageService,
-        inference_service: IInferenceService,
+        storage_service: IStorageService[T],
+        inference_service: IInferenceService[T],
         uow: IUnitOfWork,
         cache_service: ICacheService,
     ):
@@ -51,26 +51,26 @@ class EncodeImageBatchUseCase:
 
         start_time = time.time()
         batch_thumb_keys = [k.replace("/raw/", "/thumbs/", 1) for k in keys]
-        b64_images = await self.storage_service.download_images_b64(batch_thumb_keys)
+        images = await self.storage_service.download_images(batch_thumb_keys)
 
         dl_time = time.time()
         logger.info(
-            f"download_images_b64 took {dl_time - start_time:.2f}s for {len(keys)} images"
+            f"download_images took {dl_time - start_time:.2f}s for {len(keys)} images"
         )
 
         valid_keys: list[str] = []
-        valid_b64: list[str] = []
+        valid_images: list[T] = []
         failed_keys: list[str] = []
-        for key, b64 in zip(keys, b64_images):
-            if isinstance(b64, Exception):
+        for key, img in zip(keys, images):
+            if isinstance(img, Exception):
                 logger.warning(
-                    f"Failed to download {key} after retries: {b64}. Skipping this image."
+                    f"Failed to download {key} after retries: {img}. Skipping this image."
                 )
                 failed_keys.append(key)
                 continue
-            elif b64 is not None:
+            elif img is not None:
                 valid_keys.append(key)
-                valid_b64.append(str(b64))
+                valid_images.append(img)
 
         if not valid_keys:
             return {
@@ -83,7 +83,7 @@ class EncodeImageBatchUseCase:
         try:
             inf_start = time.time()
             results = await self.inference_service.get_face_encodings(
-                valid_b64, det_conf, nms_thresh
+                valid_images, det_conf, nms_thresh
             )
             inf_time = time.time()
             logger.info(f"inference API call took {inf_time - inf_start:.2f}s")

@@ -18,7 +18,6 @@ from application.use_cases.background_tasks import (
     DeleteImageBatchUseCase,
 )
 from infrastructure.database.uow import AsyncSqlAlchemyUnitOfWork
-from infrastructure.storage.s3_service import S3StorageService
 from infrastructure.inference.onnx_inference_service import OnnxInferenceService
 from infrastructure.queue.celery_service import CeleryTaskQueueService
 from infrastructure.cache.valkey_service import ValkeyCacheService
@@ -60,19 +59,6 @@ class Container(containers.DeclarativeContainer):
 
     uow = providers.Factory(AsyncSqlAlchemyUnitOfWork, session_factory=session_factory)
 
-    storage_service = providers.Factory(
-        S3StorageService,
-        endpoint_url=config.storage_endpoint,
-        bucket_name=config.storage_bucket,
-        access_key=config.storage_access,
-        secret_key=config.storage_secret,
-    )
-
-    inference_service = providers.Factory(
-        OnnxInferenceService,
-        api_url=config.inference_url,
-    )
-
     cache_service = providers.Factory(
         ValkeyCacheService, valkey_url=settings.VALKEY_URL
     )
@@ -82,6 +68,63 @@ class Container(containers.DeclarativeContainer):
     )
 
     image_augmenter = providers.Factory(OpenCVImageAugmenter)
+
+    if settings.INFERENCE_API_GRPC_URL:
+        from infrastructure.storage.s3_service import S3StorageServiceBytes
+        from infrastructure.inference.grpc_inference_service import GrpcInferenceService
+        import base64
+
+        storage_service = providers.Factory(
+            S3StorageServiceBytes,
+            endpoint_url=config.storage_endpoint,
+            bucket_name=config.storage_bucket,
+            access_key=config.storage_access,
+            secret_key=config.storage_secret,
+        )
+        inference_service = providers.Factory(
+            GrpcInferenceService,
+            api_url=settings.INFERENCE_API_GRPC_URL,
+        )
+        encode_attendee_use_case = providers.Factory(
+            EncodeAttendeeUseCase[bytes],
+            inference_service=inference_service,
+            augmenter=image_augmenter,
+            decode_fn=base64.b64decode,
+        )
+        encode_image_batch_use_case = providers.Factory(
+            EncodeImageBatchUseCase[bytes],
+            storage_service=storage_service,
+            inference_service=inference_service,
+            uow=uow,
+            cache_service=cache_service,
+        )
+    else:
+        from infrastructure.storage.s3_service import S3StorageServiceB64
+
+        storage_service = providers.Factory(
+            S3StorageServiceB64,  # type: ignore[arg-type]
+            endpoint_url=config.storage_endpoint,
+            bucket_name=config.storage_bucket,
+            access_key=config.storage_access,
+            secret_key=config.storage_secret,
+        )
+        inference_service = providers.Factory(
+            OnnxInferenceService,  # type: ignore[arg-type]
+            api_url=config.inference_url,
+        )
+        encode_attendee_use_case = providers.Factory(
+            EncodeAttendeeUseCase[str],  # type: ignore[arg-type]
+            inference_service=inference_service,
+            augmenter=image_augmenter,
+            decode_fn=lambda x: x,
+        )
+        encode_image_batch_use_case = providers.Factory(
+            EncodeImageBatchUseCase[str],  # type: ignore[arg-type]
+            storage_service=storage_service,
+            inference_service=inference_service,
+            uow=uow,
+            cache_service=cache_service,
+        )
 
     start_event_encoding_use_case = providers.Factory(
         StartEventEncodingUseCase, queue_service=queue_service
@@ -95,12 +138,6 @@ class Container(containers.DeclarativeContainer):
 
     delete_event_data_use_case = providers.Factory(
         DeleteEventDataUseCase, queue_service=queue_service
-    )
-
-    encode_attendee_use_case = providers.Factory(
-        EncodeAttendeeUseCase,
-        inference_service=inference_service,
-        augmenter=image_augmenter,
     )
 
     sort_attendee_use_case = providers.Factory(SortAttendeeUseCase, uow=uow)
@@ -118,14 +155,6 @@ class Container(containers.DeclarativeContainer):
         storage_service=storage_service,
         uow=uow,
         queue_service=queue_service,
-        cache_service=cache_service,
-    )
-
-    encode_image_batch_use_case = providers.Factory(
-        EncodeImageBatchUseCase,
-        storage_service=storage_service,
-        inference_service=inference_service,
-        uow=uow,
         cache_service=cache_service,
     )
 
