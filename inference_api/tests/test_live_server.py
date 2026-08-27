@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 if not os.path.exists(r"d:\EventSnap\EventSnapAPI\images\PXL_20241116_133746627.jpg"):
