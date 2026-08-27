@@ -28,6 +28,7 @@ dependencies = [
     "grpcio>=1.83.0",
     "grpcio-tools>=1.83.0",
     "redis>=8.1.0",
+    "ruff>=0.16.4",
 ]
 
 [dependency-groups]
