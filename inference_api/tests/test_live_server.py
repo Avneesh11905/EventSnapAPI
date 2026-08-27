@@ -1,3 +1,9 @@
+import os
+import pytest
+
+if not os.path.exists(r"d:\EventSnap\EventSnapAPI\images\PXL_20241116_133746627.jpg"):
+    pytest.skip("Live server tests require local private images", allow_module_level=True)
+
 import asyncio
 import base64
 import time
@@ -76,3 +82,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
