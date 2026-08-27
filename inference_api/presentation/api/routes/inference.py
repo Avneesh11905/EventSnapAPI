@@ -22,9 +22,7 @@ async def predict(
     use_case: ProcessImagesUseCase = Depends(
         Provide[Container.process_images_use_case]
     ),
-    executor: ThreadPoolExecutor = Depends(
-        Provide[Container.inference_executor]
-    ),
+    executor: ThreadPoolExecutor = Depends(Provide[Container.inference_executor]),
 ):
     logger.info(f"[HTTP] Received request for {len(request.inputs)} images")
     tt = time.perf_counter()

@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await grpc_server.start()
     logger.info(f"🔌 gRPC server started on 0.0.0.0:{GRPC_PORT} (SO_REUSEPORT enabled)")
 
-    yield 
+    yield
 
     logger.info("Shutting down gRPC server (grace=5s)...")
     await grpc_server.stop(grace=5)

@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor
 
 import grpc
 from grpc import aio
@@ -12,7 +11,6 @@ from presentation.grpc.proto import inference_pb2
 from presentation.grpc.proto import inference_pb2_grpc
 
 logger = logging.getLogger(__name__)
-
 
 
 class FaceInferenceServicer(inference_pb2_grpc.FaceInferenceServicer):
@@ -29,14 +27,15 @@ class FaceInferenceServicer(inference_pb2_grpc.FaceInferenceServicer):
 
     async def ExtractFaces(
         self,
-        request: inference_pb2.InferenceRequest,
+        request: "inference_pb2.InferenceRequest",  # type: ignore
         context: aio.ServicerContext,
-    ) -> inference_pb2.InferenceResponse:
+    ) -> "inference_pb2.InferenceResponse":  # type: ignore
         images_bytes: list[bytes] = list(request.images)
 
         if not images_bytes:
             await context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "Request must contain at least one image."
+                grpc.StatusCode.INVALID_ARGUMENT,
+                "Request must contain at least one image.",
             )
 
         detection_conf = request.detection_conf if request.detection_conf else 0.5
@@ -54,7 +53,7 @@ class FaceInferenceServicer(inference_pb2_grpc.FaceInferenceServicer):
         use_case = self._container.process_images_bytes_use_case()
 
         loop = asyncio.get_running_loop()
-        
+
         result = await loop.run_in_executor(
             self._container.inference_executor(),
             use_case.execute,
@@ -63,15 +62,16 @@ class FaceInferenceServicer(inference_pb2_grpc.FaceInferenceServicer):
         )
 
         # Map domain DTOs → protobuf messages
-        response = inference_pb2.InferenceResponse()
+        response = inference_pb2.InferenceResponse()  # type: ignore
         for image_faces in result.batch_faces:
             faces_proto = [
-                inference_pb2.FaceResult(
+                inference_pb2.FaceResult(  # type: ignore
                     bbox=face.bbox,
                     confidence=face.confidence,
                     embedding=face.embedding,
-                ) for face in image_faces
+                )
+                for face in image_faces
             ]
-            response.results.append(inference_pb2.ImageFaces(faces=faces_proto))
+            response.results.append(inference_pb2.ImageFaces(faces=faces_proto))  # type: ignore
 
         return response

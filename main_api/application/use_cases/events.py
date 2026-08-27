@@ -48,7 +48,7 @@ class DeleteEventDataUseCase:
     ) -> DeleteDataDTO:
         # 1. Forcefully cancel any ongoing encoding tasks for this event
         await self.queue_service.cancel_event_tasks(event_code)
-        
+
         # 2. Enqueue the deletion task
         self.queue_service.enqueue_delete_event(event_code, event_id)
         return DeleteDataDTO(

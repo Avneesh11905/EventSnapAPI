@@ -29,7 +29,9 @@ app = FastAPI(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+cors_origins = [
+    origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +65,7 @@ async def stream_task_status(request: Request, taskId: str):
 
             import json
             import dataclasses
+
             yield {"event": "message", "data": json.dumps(dataclasses.asdict(status))}
 
             if status.state in ["SUCCESS", "FAILURE", "REVOKED"]:

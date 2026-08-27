@@ -10,6 +10,7 @@ from infrastructure.di_container import get_container
 
 class MockFaceDetector(IFaceDetector):
     """Mocks the ONNX SCRFD Face Detector"""
+
     def detect_batch(
         self,
         images: list[np.ndarray],
@@ -31,6 +32,7 @@ class MockFaceDetector(IFaceDetector):
 
 class MockFaceEmbedder(IFaceEmbedder):
     """Mocks the ONNX MobileFaceNet Embedder"""
+
     def align(self, image: np.ndarray, landmarks: np.ndarray) -> np.ndarray:
         return np.zeros((112, 112, 3), dtype=np.uint8)
 
@@ -45,8 +47,10 @@ class MockFaceEmbedder(IFaceEmbedder):
 def mock_container():
     """Provides a DI container with the heavy ML models mocked out."""
     container = get_container()
-    with container.face_detector.override(MockFaceDetector()), \
-         container.face_embedder.override(MockFaceEmbedder()):
+    with (
+        container.face_detector.override(MockFaceDetector()),
+        container.face_embedder.override(MockFaceEmbedder()),
+    ):
         yield container
 
 
@@ -61,7 +65,7 @@ def dummy_image_bgr() -> np.ndarray:
 @pytest.fixture
 def dummy_image_bytes(dummy_image_bgr: np.ndarray) -> bytes:
     """Returns the raw JPEG bytes of a dummy image."""
-    _, buffer = cv2.imencode('.jpg', dummy_image_bgr)
+    _, buffer = cv2.imencode(".jpg", dummy_image_bgr)
     return buffer.tobytes()
 
 

@@ -7,6 +7,7 @@ from infrastructure.image_decoder import Base64ImageDecoder, BytesImageDecoder
 
 from concurrent.futures import ThreadPoolExecutor
 
+
 class Container(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(
         modules=[

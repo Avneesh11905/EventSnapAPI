@@ -70,11 +70,13 @@ def encode_image_batch_task(
         raise Ignore()
     except Exception as e:
         # Manually retry with backoff to avoid catching Ignore via autoretry_for=(Exception,)
-        raise self.retry(exc=e, max_retries=5, countdown=2 ** self.request.retries)
+        raise self.retry(exc=e, max_retries=5, countdown=2**self.request.retries)
 
 
 @shared_task(bind=True, name="create_event_zip_task", acks_late=True)
-def create_event_zip_task(self, event_id: str, user_id: str, image_paths: list[dict]) -> dict:
+def create_event_zip_task(
+    self, event_id: str, user_id: str, image_paths: list[dict]
+) -> dict:
     container = get_container()
     use_case = container.create_event_zip_use_case()
 

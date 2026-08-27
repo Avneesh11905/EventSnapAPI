@@ -26,6 +26,7 @@ class ProcessImagesUseCase:
 
         try:
             import time
+
             t0 = time.perf_counter()
             cv_images = self.image_decoder.decode_batch(inputs)
             t_decode = time.perf_counter()
@@ -72,7 +73,9 @@ class ProcessImagesUseCase:
                     )
 
             t_final = time.perf_counter()
-            logger.info(f"map_results took: {t_final - (t_embed if all_aligned_faces else t_align):.4f}s")
+            logger.info(
+                f"map_results took: {t_final - (t_embed if all_aligned_faces else t_align):.4f}s"
+            )
 
             return InferenceResultDTO(batch_faces=final_results)
 

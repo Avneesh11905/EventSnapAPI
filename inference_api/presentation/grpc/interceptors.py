@@ -3,12 +3,15 @@ import logging
 import grpc
 from grpc import aio
 
-from domain.exceptions import InvalidInputFormatError, ModelExecutionError, InferenceAPIError
+from domain.exceptions import (
+    InvalidInputFormatError,
+    ModelExecutionError,
+    InferenceAPIError,
+)
+import time
 
 logger = logging.getLogger(__name__)
 
-
-import time
 
 class LoggingInterceptor(aio.ServerInterceptor):
     """

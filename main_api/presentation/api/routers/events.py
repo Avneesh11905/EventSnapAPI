@@ -105,8 +105,10 @@ async def delete_event_data(
 @router.post("/cancel-encoding/{event_code}")
 @inject
 async def cancel_encoding(
-    event_code: str,
-    queue_service=Depends(Provide[Container.queue_service])
+    event_code: str, queue_service=Depends(Provide[Container.queue_service])
 ):
     await queue_service.cancel_event_tasks(event_code)
-    return {"success": True, "message": f"Cancelled all ongoing encoding tasks for event {event_code}"}
+    return {
+        "success": True,
+        "message": f"Cancelled all ongoing encoding tasks for event {event_code}",
+    }

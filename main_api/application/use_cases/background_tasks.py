@@ -42,8 +42,11 @@ class EncodeImageBatchUseCase:
         # Check if event was deleted BEFORE we even start downloading images
         is_canceled = await self.cache_service.get_flag(f"cancel_encode:{event_code}")
         if is_canceled:
-            logger.warning(f"Event {event_code} was deleted before batch started. Aborting immediately.")
+            logger.warning(
+                f"Event {event_code} was deleted before batch started. Aborting immediately."
+            )
             from domain.exceptions import TaskCanceledError
+
             raise TaskCanceledError(f"Event {event_code} was deleted.")
 
         start_time = time.time()
@@ -102,14 +105,19 @@ class EncodeImageBatchUseCase:
                         )
 
             db_start = time.time()
-            
+
             # Check if this event was deleted while we were encoding
-            is_canceled = await self.cache_service.get_flag(f"cancel_encode:{event_code}")
+            is_canceled = await self.cache_service.get_flag(
+                f"cancel_encode:{event_code}"
+            )
             if is_canceled:
-                logger.warning(f"Event {event_code} was deleted during batch processing. Aborting insert.")
+                logger.warning(
+                    f"Event {event_code} was deleted during batch processing. Aborting insert."
+                )
                 from domain.exceptions import TaskCanceledError
+
                 raise TaskCanceledError(f"Event {event_code} was deleted.")
-                
+
             async with self.uow as uow:
                 if insert_data:
                     await uow.event_repo.save_encodings(insert_data)
@@ -141,6 +149,7 @@ class EncodeImageBatchUseCase:
             }
         except Exception as e:
             from domain.exceptions import TaskCanceledError, InferenceError
+
             if isinstance(e, TaskCanceledError):
                 raise
             raise InferenceError(f"Failed to infer batch: {e}") from e
@@ -254,6 +263,7 @@ class CreateEventZipUseCase:
         total = len(image_paths)
         if total == 0:
             from domain.exceptions import ZipGenerationError
+
             raise ZipGenerationError("No images to zip")
 
         update_state_cb(

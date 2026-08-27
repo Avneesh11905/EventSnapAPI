@@ -58,7 +58,9 @@ class BytesImageDecoder(IImageDecoder[bytes]):
             np_arr = np.frombuffer(input_data, np.uint8)
             cv_img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             if cv_img is None:
-                raise ValueError("cv2.imdecode failed — unsupported or corrupt image bytes")
+                raise ValueError(
+                    "cv2.imdecode failed — unsupported or corrupt image bytes"
+                )
             return cv_img
         except Exception as e:
             raise InvalidInputFormatError(f"Failed to decode image bytes: {e}")
