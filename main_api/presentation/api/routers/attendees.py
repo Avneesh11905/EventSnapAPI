@@ -1,22 +1,24 @@
+import dataclasses
+
+from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends
-from dependency_injector.wiring import inject, Provide
-from infrastructure.di_container import Container
+
 from application.use_cases.attendees import (
-    EncodeAttendeeUseCase,
-    SortAttendeeUseCase,
-    GenerateZipUseCase,
     CheckZipExistsUseCase,
+    EncodeAttendeeUseCase,
+    GenerateZipUseCase,
+    SortAttendeeUseCase,
 )
+from infrastructure.di_container import Container
 from presentation.api.schemas import (
-    EncodeAttendeeRequest,
-    SortAttendeeRequest,
-    GenerateZipRequest,
-    EncodeAttendeeResponse,
-    GenerateZipResponse,
     AttendeeSortResponse,
+    EncodeAttendeeRequest,
+    EncodeAttendeeResponse,
+    GenerateZipRequest,
+    GenerateZipResponse,
+    SortAttendeeRequest,
     ZipCheckResponse,
 )
-import dataclasses
 
 router = APIRouter()
 
@@ -25,9 +27,7 @@ router = APIRouter()
 @inject
 async def encode_attendee(
     request: EncodeAttendeeRequest,
-    use_case: EncodeAttendeeUseCase = Depends(
-        Provide[Container.encode_attendee_use_case]
-    ),
+    use_case: EncodeAttendeeUseCase = Depends(Provide[Container.encode_attendee_use_case]),
 ):
     encoding = await use_case.execute(request.attendee_images_base64)
     return EncodeAttendeeResponse(
@@ -64,9 +64,7 @@ async def generate_zip(
 async def check_zip(
     event_id: str,
     user_id: str,
-    use_case: CheckZipExistsUseCase = Depends(
-        Provide[Container.check_zip_exists_use_case]
-    ),
+    use_case: CheckZipExistsUseCase = Depends(Provide[Container.check_zip_exists_use_case]),
 ):
     dto = await use_case.execute(event_id, user_id)
     return ZipCheckResponse(**dataclasses.asdict(dto))

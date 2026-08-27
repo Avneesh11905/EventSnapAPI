@@ -1,10 +1,10 @@
-import pytest
 import grpc
+import pytest
 from grpc import aio
 
-from presentation.grpc.servicer import FaceInferenceServicer
 from presentation.grpc.interceptors import ExceptionInterceptor
 from presentation.grpc.proto import inference_pb2, inference_pb2_grpc
+from presentation.grpc.servicer import FaceInferenceServicer
 
 
 @pytest.fixture
@@ -59,9 +59,7 @@ async def test_inference_grpc_invalid_image(grpc_test_server):
     async with aio.insecure_channel(grpc_test_server) as channel:
         stub = inference_pb2_grpc.FaceInferenceStub(channel)
 
-        request = inference_pb2.InferenceRequest(
-            images=[b"not-a-valid-image-byte-stream"]
-        )
+        request = inference_pb2.InferenceRequest(images=[b"not-a-valid-image-byte-stream"])
 
         with pytest.raises(grpc.RpcError) as exc_info:
             await stub.ExtractFaces(request)

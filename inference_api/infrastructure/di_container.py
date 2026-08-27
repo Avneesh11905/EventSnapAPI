@@ -1,11 +1,11 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from dependency_injector import containers, providers
+
 from application.use_cases.inference import ProcessImagesUseCase
+from infrastructure.image_decoder import Base64ImageDecoder, BytesImageDecoder
 from infrastructure.onnx.detector import FaceDetector
 from infrastructure.onnx.embedder import FaceEmbedder
-from infrastructure.image_decoder import Base64ImageDecoder, BytesImageDecoder
-
-
-from concurrent.futures import ThreadPoolExecutor
 
 
 class Container(containers.DeclarativeContainer):

@@ -1,10 +1,11 @@
-import pytest
-import numpy as np
-import cv2
 import base64
 
-from domain.entities import DetectedFace
+import cv2
+import numpy as np
+import pytest
+
 from application.ports.face_services import IFaceDetector, IFaceEmbedder
+from domain.entities import DetectedFace
 from infrastructure.di_container import get_container
 
 

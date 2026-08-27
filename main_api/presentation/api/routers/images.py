@@ -1,8 +1,8 @@
+from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from dependency_injector.wiring import inject, Provide
+
 from infrastructure.di_container import Container
-from typing import List, Optional
 from infrastructure.queue.celery_workers import delete_image_batch_task
 
 router = APIRouter()
@@ -10,8 +10,8 @@ router = APIRouter()
 
 class DeleteBulkRequest(BaseModel):
     event_code: str
-    keys: List[str]
-    cancel_task_id: Optional[str] = None
+    keys: list[str]
+    cancel_task_id: str | None = None
 
 
 class DeleteBulkResponse(BaseModel):

@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import List, Optional
 
 # ---- Request Models ----
 
@@ -11,18 +10,18 @@ class EncodeEventRequest(BaseModel):
 
 
 class EncodeAttendeeRequest(BaseModel):
-    attendee_images_base64: List[str]
+    attendee_images_base64: list[str]
 
 
 class SortAttendeeRequest(BaseModel):
     event_code: str
-    attendee_encoding: List[float]
+    attendee_encoding: list[float]
 
 
 class GenerateZipRequest(BaseModel):
     event_id: str
     user_id: str
-    image_paths: List[dict]
+    image_paths: list[dict]
 
 
 # ---- API Only Response Models ----
@@ -37,12 +36,12 @@ class HealthResponse(BaseModel):
 class EnqueueTaskResponse(BaseModel):
     message: str
     task_id: str
-    event_code: Optional[str] = None
+    event_code: str | None = None
 
 
 class EncodeAttendeeResponse(BaseModel):
     message: str
-    encoding: List[float]
+    encoding: list[float]
 
 
 class GenerateZipResponse(BaseModel):
@@ -54,10 +53,10 @@ class GenerateZipResponse(BaseModel):
 class EncodingStatusResponse(BaseModel):
     task_id: str
     status: str
-    progress: Optional[str] = None
-    images_processed: Optional[int] = None
-    total_images: Optional[int] = None
-    message: Optional[str] = None
+    progress: str | None = None
+    images_processed: int | None = None
+    total_images: int | None = None
+    message: str | None = None
 
 
 class EncodedCountResponse(BaseModel):
@@ -67,23 +66,23 @@ class EncodedCountResponse(BaseModel):
 
 class DeleteDataResponse(BaseModel):
     success: bool
-    message: Optional[str] = None
-    table_name: Optional[str] = None
+    message: str | None = None
+    table_name: str | None = None
 
 
 class AttendeeSortResponse(BaseModel):
     event_code: str
     matches_found: int
-    photos: List[str]
+    photos: list[str]
 
 
 class ZipCheckResponse(BaseModel):
     exists: bool
-    zip_path: Optional[str] = None
-    filename: Optional[str] = None
+    zip_path: str | None = None
+    filename: str | None = None
 
 
 class TaskStatusResponse(BaseModel):
     state: str
-    info: Optional[dict] = None
-    result: Optional[dict] = None
+    info: dict | None = None
+    result: dict | None = None

@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends
-import time
 import asyncio
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
-from dependency_injector.wiring import inject, Provide
 
-from presentation.api.schemas import InferenceRequest, InferenceResponse
-from application.use_cases.inference import ProcessImagesUseCase
+from dependency_injector.wiring import Provide, inject
+from fastapi import APIRouter, Depends
+
 from application.dtos import InferenceParametersDTO
+from application.use_cases.inference import ProcessImagesUseCase
 from infrastructure.di_container import Container
+from presentation.api.schemas import InferenceRequest, InferenceResponse
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,7 @@ router = APIRouter()
 @inject
 async def predict(
     request: InferenceRequest,
-    use_case: ProcessImagesUseCase = Depends(
-        Provide[Container.process_images_use_case]
-    ),
+    use_case: ProcessImagesUseCase = Depends(Provide[Container.process_images_use_case]),
     executor: ThreadPoolExecutor = Depends(Provide[Container.inference_executor]),
 ):
     logger.info(f"[HTTP] Received request for {len(request.inputs)} images")

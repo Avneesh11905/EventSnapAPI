@@ -15,7 +15,6 @@ class IStorageService[T](Protocol):
         Creates a zip file in the storage layer.
         progress_callback can be called with (current, total) to report progress.
         """
-        pass
 
     async def check_zip_exists(self, zip_key: str) -> bool:
         pass

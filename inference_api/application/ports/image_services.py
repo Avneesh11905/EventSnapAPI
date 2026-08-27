@@ -1,4 +1,5 @@
 from typing import Protocol, TypeVar
+
 import numpy as np
 
 T = TypeVar("T", str, bytes)

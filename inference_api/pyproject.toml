@@ -27,3 +27,8 @@ dev = [
     "ruff>=0.16.4",
     "watchdog>=4.0.0",
 ]
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-ignore = ["BLE001", "RUF012", "RUF059", "B008", "G201", "ASYNC230"]

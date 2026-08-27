@@ -1,11 +1,12 @@
 import asyncio
 from logging.config import fileConfig
+
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
-from alembic import context
 
-from infrastructure.database.models import Base
+from alembic import context
 from config.database import db_settings
+from infrastructure.database.models import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", db_settings.DATABASE_URL.replace("%", "%%"))

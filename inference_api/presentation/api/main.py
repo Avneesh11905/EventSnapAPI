@@ -1,6 +1,6 @@
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
@@ -8,11 +8,11 @@ from grpc import aio as grpc_aio
 from grpc_reflection.v1alpha import reflection
 
 from infrastructure.di_container import get_container
-from presentation.api.routes.inference import router
 from presentation.api.exception_handlers import add_exception_handlers
-from presentation.grpc.servicer import FaceInferenceServicer
+from presentation.api.routes.inference import router
 from presentation.grpc.interceptors import ExceptionInterceptor, LoggingInterceptor
 from presentation.grpc.proto import inference_pb2, inference_pb2_grpc
+from presentation.grpc.servicer import FaceInferenceServicer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -84,7 +84,3 @@ app.include_router(router)
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok", "grpc_port": GRPC_PORT}
-
-
-
-

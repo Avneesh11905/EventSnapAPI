@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -18,4 +17,4 @@ class FaceResultDTO:
 
 @dataclass
 class InferenceResultDTO:
-    batch_faces: List[List[FaceResultDTO]]
+    batch_faces: list[list[FaceResultDTO]]

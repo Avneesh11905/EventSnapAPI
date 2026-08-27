@@ -1,5 +1,7 @@
 from typing import Protocol
+
 import numpy as np
+
 from domain.entities import DetectedFace
 
 

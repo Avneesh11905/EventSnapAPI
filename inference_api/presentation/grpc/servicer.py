@@ -6,9 +6,7 @@ from grpc import aio
 
 from application.dtos import InferenceParametersDTO
 from infrastructure.di_container import Container
-
-from presentation.grpc.proto import inference_pb2
-from presentation.grpc.proto import inference_pb2_grpc
+from presentation.grpc.proto import inference_pb2, inference_pb2_grpc
 
 logger = logging.getLogger(__name__)
 

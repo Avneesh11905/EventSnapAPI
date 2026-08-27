@@ -1,15 +1,17 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
-from presentation.api.exception_handlers import add_exception_handlers
-from presentation.api.schemas import HealthResponse, TaskStatusResponse
-from presentation.api.routers import events, attendees, images
+from fastapi.middleware.gzip import GZipMiddleware
+from sqlalchemy import text
+
+from config.app import app_settings
 from infrastructure.di_container import get_container
 from infrastructure.queue.celery_app import celery_app
-from sqlalchemy import text
-from config.app import app_settings
-from contextlib import asynccontextmanager
-import logging
+from presentation.api.exception_handlers import add_exception_handlers
+from presentation.api.routers import attendees, events, images
+from presentation.api.schemas import HealthResponse, TaskStatusResponse
 
 container = get_container()
 logger = logging.getLogger(__name__)
@@ -29,9 +31,7 @@ app = FastAPI(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-cors_origins = [
-    origin.strip() for origin in app_settings.CORS_ORIGINS.split(",") if origin.strip()
-]
+cors_origins = [origin.strip() for origin in app_settings.CORS_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,8 +51,9 @@ app.include_router(images.router, prefix="/api/images", tags=["Images"])
 @app.get("/api/tasks/stream", tags=["Tasks"])
 async def stream_task_status(request: Request, taskId: str):
     """Streams the status of a Celery task using SSE."""
-    from sse_starlette.sse import EventSourceResponse
     import asyncio
+
+    from sse_starlette.sse import EventSourceResponse
 
     use_case = container.check_encoding_status_use_case()
 
@@ -63,8 +64,8 @@ async def stream_task_status(request: Request, taskId: str):
 
             status = await asyncio.to_thread(use_case.execute, taskId)
 
-            import json
             import dataclasses
+            import json
 
             yield {"event": "message", "data": json.dumps(dataclasses.asdict(status))}
 
@@ -87,9 +88,7 @@ def get_task_status(task_id: str):
 
 @app.get("/", tags=["Health"], response_model=HealthResponse)
 async def health_check():
-    health_response = HealthResponse(
-        status="ok", service="Eventsnap Main API", checks={}
-    )
+    health_response = HealthResponse(status="ok", service="Eventsnap Main API", checks={})
 
     # Check Postgres
     try:
@@ -99,7 +98,7 @@ async def health_check():
         health_response.checks["postgres"] = "ok"
     except Exception as e:
         health_response.status = "degraded"
-        health_response.checks["postgres"] = f"error: {str(e)}"
+        health_response.checks["postgres"] = f"error: {e!s}"
 
     # Check RabbitMQ (Celery Broker)
     try:
@@ -108,9 +107,6 @@ async def health_check():
         health_response.checks["rabbitmq"] = "ok"
     except Exception as e:
         health_response.status = "degraded"
-        health_response.checks["rabbitmq"] = f"error: {str(e)}"
+        health_response.checks["rabbitmq"] = f"error: {e!s}"
 
     return health_response
-
-
-

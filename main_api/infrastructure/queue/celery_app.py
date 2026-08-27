@@ -1,4 +1,5 @@
 from celery import Celery
+
 from config.queue import queue_settings
 
 celery_app = Celery(

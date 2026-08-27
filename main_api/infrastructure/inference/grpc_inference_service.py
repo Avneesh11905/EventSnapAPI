@@ -1,7 +1,9 @@
-from application.ports.inference import IInferenceService
 import logging
+
 import grpc
 from grpc import aio
+
+from application.ports.inference import IInferenceService
 from infrastructure.inference.proto import inference_pb2, inference_pb2_grpc
 
 logger = logging.getLogger(__name__)
@@ -23,9 +25,7 @@ class GrpcInferenceService(IInferenceService[bytes]):
         nms_threshold: float = 0.4,
     ) -> list[list[dict]]:
 
-        async with aio.insecure_channel(
-            self.api_url, options=self.channel_options
-        ) as channel:
+        async with aio.insecure_channel(self.api_url, options=self.channel_options) as channel:
             stub = inference_pb2_grpc.FaceInferenceStub(channel)
 
             request = inference_pb2.InferenceRequest(  # type: ignore

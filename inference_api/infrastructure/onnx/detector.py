@@ -15,6 +15,7 @@ import numpy as np
 import onnxruntime as ort
 
 from domain.entities import DetectedFace
+
 from .utils import get_providers
 
 
@@ -44,22 +45,17 @@ class FaceDetector:
     ):
         if not Path(model_path).exists():
             raise FileNotFoundError(
-                f"Detection model not found at '{model_path}'. "
-                f"Run download_models.py first."
+                f"Detection model not found at '{model_path}'. Run download_models.py first."
             )
 
         providers = get_providers(device)
         sess_opts = ort.SessionOptions()
         sess_opts.log_severity_level = 3
-        sess_opts.add_session_config_entry(
-            "session.memory.enable_memory_arena_shrinkage", "gpu:0"
-        )
+        sess_opts.add_session_config_entry("session.memory.enable_memory_arena_shrinkage", "gpu:0")
         if num_threads > 0:
             sess_opts.intra_op_num_threads = num_threads
             sess_opts.inter_op_num_threads = 1
-        self.session = ort.InferenceSession(
-            model_path, sess_options=sess_opts, providers=providers
-        )
+        self.session = ort.InferenceSession(model_path, sess_options=sess_opts, providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [o.name for o in self.session.get_outputs()]
         self.confidence = confidence
@@ -178,15 +174,13 @@ class FaceDetector:
         if key in self._center_cache:
             return self._center_cache[key]
 
-        anchor_centers = np.stack(
-            tuple(np.mgrid[:height, :width][::-1]), axis=-1
-        ).astype(np.float32)
+        anchor_centers = np.stack(tuple(np.mgrid[:height, :width][::-1]), axis=-1).astype(
+            np.float32
+        )
         anchor_centers = (anchor_centers * stride).reshape(-1, 2)
 
         if self._NUM_ANCHORS > 1:
-            anchor_centers = np.stack(
-                [anchor_centers] * self._NUM_ANCHORS, axis=1
-            ).reshape(-1, 2)
+            anchor_centers = np.stack([anchor_centers] * self._NUM_ANCHORS, axis=1).reshape(-1, 2)
 
         if len(self._center_cache) < 100:
             self._center_cache[key] = anchor_centers

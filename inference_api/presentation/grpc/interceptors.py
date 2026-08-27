@@ -1,14 +1,14 @@
 import logging
+import time
 
 import grpc
 from grpc import aio
 
 from domain.exceptions import (
+    InferenceAPIError,
     InvalidInputFormatError,
     ModelExecutionError,
-    InferenceAPIError,
 )
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,7 @@ class LoggingInterceptor(aio.ServerInterceptor):
     Logs incoming gRPC requests and the time taken to process them.
     """
 
-    async def intercept_service(
-        self, continuation, handler_call_details: grpc.HandlerCallDetails
-    ):
+    async def intercept_service(self, continuation, handler_call_details: grpc.HandlerCallDetails):
         handler = await continuation(handler_call_details)
         if handler is None:
             return handler
@@ -53,9 +51,7 @@ class ExceptionInterceptor(aio.ServerInterceptor):
     handlers in presentation/api/exception_handlers.py.
     """
 
-    async def intercept_service(
-        self, continuation, handler_call_details: grpc.HandlerCallDetails
-    ):
+    async def intercept_service(self, continuation, handler_call_details: grpc.HandlerCallDetails):
         handler = await continuation(handler_call_details)
         if handler is None:
             return handler

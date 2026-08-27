@@ -1,11 +1,12 @@
 import base64
 import logging
-import numpy as np
-import cv2
 from concurrent.futures import ThreadPoolExecutor
 
-from domain.exceptions import InvalidInputFormatError
+import cv2
+import numpy as np
+
 from application.ports.image_services import IImageDecoder
+from domain.exceptions import InvalidInputFormatError
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +52,12 @@ class BytesImageDecoder(IImageDecoder[bytes]):
 
     def decode(self, input_data: bytes) -> np.ndarray:
         if not isinstance(input_data, (bytes, bytearray)):
-            raise InvalidInputFormatError(
-                f"Expected bytes, got {type(input_data).__name__}"
-            )
+            raise InvalidInputFormatError(f"Expected bytes, got {type(input_data).__name__}")
         try:
             np_arr = np.frombuffer(input_data, np.uint8)
             cv_img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             if cv_img is None:
-                raise ValueError(
-                    "cv2.imdecode failed — unsupported or corrupt image bytes"
-                )
+                raise ValueError("cv2.imdecode failed — unsupported or corrupt image bytes")
             return cv_img
         except Exception as e:
             raise InvalidInputFormatError(f"Failed to decode image bytes: {e}")

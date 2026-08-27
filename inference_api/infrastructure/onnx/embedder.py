@@ -46,23 +46,18 @@ class FaceEmbedder:
     ):
         if not Path(model_path).exists():
             raise FileNotFoundError(
-                f"Embedding model not found at '{model_path}'. "
-                f"Run download_models.py first."
+                f"Embedding model not found at '{model_path}'. Run download_models.py first."
             )
 
         providers = get_providers(device)
         sess_opts = ort.SessionOptions()
-        sess_opts.add_session_config_entry(
-            "session.memory.enable_memory_arena_shrinkage", "gpu:0"
-        )
+        sess_opts.add_session_config_entry("session.memory.enable_memory_arena_shrinkage", "gpu:0")
         sess_opts.log_severity_level = 3
 
         if num_threads > 0:
             sess_opts.intra_op_num_threads = num_threads
             sess_opts.inter_op_num_threads = 1
-        self.session = ort.InferenceSession(
-            model_path, sess_options=sess_opts, providers=providers
-        )
+        self.session = ort.InferenceSession(model_path, sess_options=sess_opts, providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.input_size = input_size
 
@@ -77,9 +72,7 @@ class FaceEmbedder:
         Returns:
             Aligned face crop, shape (112, 112, 3), BGR, uint8.
         """
-        assert landmarks.shape == (5, 2), (
-            f"Expected (5,2) landmarks, got {landmarks.shape}"
-        )
+        assert landmarks.shape == (5, 2), f"Expected (5,2) landmarks, got {landmarks.shape}"
 
         # Estimate affine transform from detected landmarks to reference
         # Using 3 points (both eyes + nose) for a stable affine transform

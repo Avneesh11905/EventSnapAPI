@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List, Optional
 from uuid import UUID
 
 
@@ -8,7 +7,7 @@ class EventEncodingDTO:
     id: UUID
     event_code: str
     image_path: str
-    embedding: List[float]
+    embedding: list[float]
     confidence: float
 
 
@@ -16,10 +15,10 @@ class EventEncodingDTO:
 class EncodingStatusDTO:
     task_id: str
     status: str
-    progress: Optional[str] = None
-    images_processed: Optional[int] = None
-    total_images: Optional[int] = None
-    message: Optional[str] = None
+    progress: str | None = None
+    images_processed: int | None = None
+    total_images: int | None = None
+    message: str | None = None
 
 
 @dataclass
@@ -31,22 +30,22 @@ class EncodedCountDTO:
 @dataclass
 class DeleteDataDTO:
     success: bool
-    message: Optional[str] = None
-    table_name: Optional[str] = None
+    message: str | None = None
+    table_name: str | None = None
 
 
 @dataclass
 class AttendeeSortDTO:
     event_code: str
     matches_found: int
-    photos: List[str]
+    photos: list[str]
 
 
 @dataclass
 class ZipCheckDTO:
     exists: bool
-    zip_path: Optional[str] = None
-    filename: Optional[str] = None
+    zip_path: str | None = None
+    filename: str | None = None
 
 
 @dataclass
@@ -55,7 +54,7 @@ class BackgroundEncodingResult:
     skipped: int = 0
     encoded: int = 0
     no_encodings_found: int = 0
-    group_id: Optional[str] = None
+    group_id: str | None = None
 
 
 @dataclass
@@ -68,5 +67,5 @@ class BackgroundZipResult:
 @dataclass
 class TaskStatusDTO:
     state: str
-    info: Optional[dict] = None
-    result: Optional[dict] = None
+    info: dict | None = None
+    result: dict | None = None

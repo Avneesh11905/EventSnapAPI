@@ -1,10 +1,9 @@
-from application.ports.queue import ITaskQueueService
 from celery.result import AsyncResult
+
 from application.dtos import TaskStatusDTO
-from infrastructure.queue.celery_app import celery_app
-
-
 from application.ports.cache import ICacheService
+from application.ports.queue import ITaskQueueService
+from infrastructure.queue.celery_app import celery_app
 
 
 class CeleryTaskQueueService(ITaskQueueService):
@@ -30,6 +29,7 @@ class CeleryTaskQueueService(ITaskQueueService):
         nms_threshold: float,
     ) -> str:
         from celery import group
+
         from infrastructure.queue.celery_workers import encode_image_batch_task
 
         job = group(
@@ -40,9 +40,7 @@ class CeleryTaskQueueService(ITaskQueueService):
         group_res.save()
         return group_res.id
 
-    def enqueue_create_zip(
-        self, event_id: str, user_id: str, image_paths: list[dict]
-    ) -> str:
+    def enqueue_create_zip(self, event_id: str, user_id: str, image_paths: list[dict]) -> str:
         from infrastructure.queue.celery_workers import create_event_zip_task
 
         task = create_event_zip_task.delay(event_id, user_id, image_paths)
@@ -65,9 +63,7 @@ class CeleryTaskQueueService(ITaskQueueService):
 
             tasks_to_revoke = []
 
-            for worker, tasks in list(active_tasks.items()) + list(
-                reserved_tasks.items()
-            ):
+            for worker, tasks in list(active_tasks.items()) + list(reserved_tasks.items()):
                 for task in tasks:
                     if task["name"] in ["encode_event_task", "encode_image_batch_task"]:
                         args = task.get("args", [])
@@ -81,14 +77,10 @@ class CeleryTaskQueueService(ITaskQueueService):
         except Exception as e:
             import logging
 
-            logging.getLogger(__name__).error(
-                f"Failed to cancel tasks for event {event_code}: {e}"
-            )
+            logging.getLogger(__name__).error(f"Failed to cancel tasks for event {event_code}: {e}")
 
         # Always set the valkey flag to poison any un-fetched tasks in the queue
-        await self.cache_service.set_flag(
-            f"cancel_encode:{event_code}", expiration=3600
-        )
+        await self.cache_service.set_flag(f"cancel_encode:{event_code}", expiration=3600)
 
     def get_task_status(self, task_id: str) -> TaskStatusDTO:
         res = AsyncResult(task_id, app=celery_app)
@@ -100,9 +92,7 @@ class CeleryTaskQueueService(ITaskQueueService):
         if res.ready():
             if res.successful():
                 status_result = (
-                    res.result
-                    if isinstance(res.result, dict)
-                    else {"result": res.result}
+                    res.result if isinstance(res.result, dict) else {"result": res.result}
                 )
                 # Check if this task delegated to a group
                 if isinstance(res.result, dict) and "group_id" in res.result:

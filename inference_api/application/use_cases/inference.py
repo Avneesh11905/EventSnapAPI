@@ -1,7 +1,8 @@
 import logging
+
+from application.dtos import FaceResultDTO, InferenceParametersDTO, InferenceResultDTO
 from application.ports.face_services import IFaceDetector, IFaceEmbedder
 from application.ports.image_services import IImageDecoder
-from application.dtos import InferenceParametersDTO, InferenceResultDTO, FaceResultDTO
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +42,7 @@ class ProcessImagesUseCase:
             t_detect = time.perf_counter()
             logger.info(f"detect_batch took: {t_detect - t_decode:.4f}s")
 
-            final_results: list[list[FaceResultDTO]] = [
-                [] for _ in range(len(cv_images))
-            ]
+            final_results: list[list[FaceResultDTO]] = [[] for _ in range(len(cv_images))]
             all_aligned_faces = []
             face_mapping = []
 

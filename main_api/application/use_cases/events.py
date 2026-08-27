@@ -1,6 +1,6 @@
+from application.dtos import DeleteDataDTO, EncodedCountDTO, TaskStatusDTO
 from application.ports.queue import ITaskQueueService
 from application.ports.uow import IUnitOfWork
-from application.dtos import EncodedCountDTO, DeleteDataDTO, TaskStatusDTO
 
 
 class StartEventEncodingUseCase:
@@ -13,9 +13,7 @@ class StartEventEncodingUseCase:
         detection_conf: float,
         nms_threshold: float,
     ) -> str:
-        return self.queue_service.enqueue_encode_event(
-            event_code, detection_conf, nms_threshold
-        )
+        return self.queue_service.enqueue_encode_event(event_code, detection_conf, nms_threshold)
 
 
 class CheckEncodingStatusUseCase:
@@ -43,9 +41,7 @@ class DeleteEventDataUseCase:
     def __init__(self, queue_service: ITaskQueueService):
         self.queue_service = queue_service
 
-    async def execute(
-        self, event_code: str, event_id: str | None = None
-    ) -> DeleteDataDTO:
+    async def execute(self, event_code: str, event_id: str | None = None) -> DeleteDataDTO:
         # 1. Forcefully cancel any ongoing encoding tasks for this event
         await self.queue_service.cancel_event_tasks(event_code)
 

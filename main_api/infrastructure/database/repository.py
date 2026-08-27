@@ -1,24 +1,25 @@
-from application.ports.repository import IEventRepository
-from infrastructure.database.models import EventEncodingModel, ProcessedImageModel
-from application.dtos import EventEncodingDTO
-from sqlalchemy.ext.asyncio import AsyncSession
+import dataclasses
+
 from sqlalchemy import (
-    insert,
-    select,
+    Float,
     delete,
     func,
+    insert,
     literal_column,
-    Float,
+    select,
 )
-from typing import List, Set
-import dataclasses
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from application.dtos import EventEncodingDTO
+from application.ports.repository import IEventRepository
+from infrastructure.database.models import EventEncodingModel, ProcessedImageModel
 
 
 class PostgresEventRepository(IEventRepository):
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_already_encoded_images(self, event_code: str) -> Set[str]:
+    async def get_already_encoded_images(self, event_code: str) -> set[str]:
         stmt = (
             select(ProcessedImageModel.image_path)
             .where(ProcessedImageModel.event_code == event_code)
@@ -27,7 +28,7 @@ class PostgresEventRepository(IEventRepository):
         result = await self.session.execute(stmt)
         return {row[0] for row in result.fetchall()}
 
-    async def save_encodings(self, encodings: List[EventEncodingDTO]) -> None:
+    async def save_encodings(self, encodings: list[EventEncodingDTO]) -> None:
         encoding_dicts = [dataclasses.asdict(e) for e in encodings]
         await self.session.execute(insert(EventEncodingModel), encoding_dicts)
 
@@ -50,9 +51,7 @@ class PostgresEventRepository(IEventRepository):
         return count
 
     async def delete_event_data(self, event_code: str) -> None:
-        stmt = delete(EventEncodingModel).where(
-            EventEncodingModel.event_code == event_code
-        )
+        stmt = delete(EventEncodingModel).where(EventEncodingModel.event_code == event_code)
         await self.session.execute(stmt)
 
         stmt_processed = delete(ProcessedImageModel).where(
@@ -63,12 +62,10 @@ class PostgresEventRepository(IEventRepository):
     async def find_matches(
         self,
         event_code: str,
-        encoding: List[float],
+        encoding: list[float],
         threshold: float,
-    ) -> List[str]:
-        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(
-            encoding
-        )
+    ) -> list[str]:
+        distance_op = EventEncodingModel.embedding.op("<=>", return_type=Float())(encoding)
 
         stmt = (
             select(
@@ -84,7 +81,7 @@ class PostgresEventRepository(IEventRepository):
         rows = result.all()
         return [row[0] for row in rows]
 
-    async def save_processed_images(self, processed_data: List[dict]) -> None:
+    async def save_processed_images(self, processed_data: list[dict]) -> None:
         if not processed_data:
             return
         from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -93,7 +90,7 @@ class PostgresEventRepository(IEventRepository):
         stmt = stmt.on_conflict_do_nothing(index_elements=["event_code", "image_path"])
         await self.session.execute(stmt)
 
-    async def delete_keys(self, event_code: str, keys: List[str]) -> None:
+    async def delete_keys(self, event_code: str, keys: list[str]) -> None:
         if not keys:
             return
         stmt1 = delete(EventEncodingModel).where(

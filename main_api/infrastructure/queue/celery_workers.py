@@ -1,7 +1,9 @@
-from celery import shared_task
 import asyncio
-from infrastructure.di_container import get_container
 import dataclasses
+
+from celery import shared_task
+
+from infrastructure.di_container import get_container
 
 
 @shared_task(
@@ -52,9 +54,11 @@ def encode_image_batch_task(
     container = get_container()
     use_case = container.encode_image_batch_use_case()
 
-    from domain.exceptions import TaskCanceledError
-    from celery.exceptions import Ignore
     import asyncio
+
+    from celery.exceptions import Ignore
+
+    from domain.exceptions import TaskCanceledError
 
     try:
         return asyncio.run(
@@ -74,9 +78,7 @@ def encode_image_batch_task(
 
 
 @shared_task(bind=True, name="create_event_zip_task", acks_late=True)
-def create_event_zip_task(
-    self, event_id: str, user_id: str, image_paths: list[dict]
-) -> dict:
+def create_event_zip_task(self, event_id: str, user_id: str, image_paths: list[dict]) -> dict:
     container = get_container()
     use_case = container.create_event_zip_use_case()
 
@@ -128,7 +130,7 @@ def delete_event_data_task(self, event_code: str, event_id: str | None = None) -
             self.update_state(
                 state="FAILURE",
                 meta={
-                    "error": f"Failed to delete event data for event_code={event_code}. Reason: {str(e)}"
+                    "error": f"Failed to delete event data for event_code={event_code}. Reason: {e!s}"
                 },
             )
             raise

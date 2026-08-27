@@ -1,8 +1,9 @@
 import asyncio
-import httpx
 import base64
 import time
+
 import grpc
+import httpx
 
 from presentation.grpc.proto import inference_pb2, inference_pb2_grpc
 

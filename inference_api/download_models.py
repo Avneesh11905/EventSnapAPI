@@ -1,7 +1,7 @@
 import os
+import shutil
 import urllib.request
 import zipfile
-import shutil
 
 MODELS_CONFIG = [
     {
@@ -27,9 +27,7 @@ def download_and_extract():
         dest_dir = os.path.join(models_base_dir, config["dest_folder"])
 
         # Check if all required files already exist
-        all_exist = all(
-            os.path.exists(os.path.join(dest_dir, f)) for f in config["extract_files"]
-        )
+        all_exist = all(os.path.exists(os.path.join(dest_dir, f)) for f in config["extract_files"])
         if all_exist:
             print(f"✅ Models in {config['dest_folder']} already exist. Skipping.")
             continue
@@ -39,9 +37,7 @@ def download_and_extract():
 
         print(f"⬇️ Downloading {config['zip_name']} from {config['url']}...")
         try:
-            req = urllib.request.Request(
-                config["url"], headers={"User-Agent": "Mozilla/5.0"}
-            )
+            req = urllib.request.Request(config["url"], headers={"User-Agent": "Mozilla/5.0"})
             with (
                 urllib.request.urlopen(req) as response,
                 open(zip_path, "wb") as out_file,
@@ -51,13 +47,9 @@ def download_and_extract():
             print(f"📦 Extracting {config['extract_files']}...")
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 for model in config["extract_files"]:
-                    matching_paths = [
-                        name for name in zip_ref.namelist() if name.endswith(model)
-                    ]
+                    matching_paths = [name for name in zip_ref.namelist() if name.endswith(model)]
                     if not matching_paths:
-                        raise ValueError(
-                            f"There is no item ending with '{model}' in the archive"
-                        )
+                        raise ValueError(f"There is no item ending with '{model}' in the archive")
 
                     # Extract the file (maintains internal zip folder structure)
                     extracted_path = zip_ref.extract(matching_paths[0], dest_dir)
@@ -71,9 +63,7 @@ def download_and_extract():
 
             print(f"🗑️ Cleaning up {config['zip_name']}...")
             os.remove(zip_path)
-            print(
-                f"🎉 Successfully downloaded and extracted {config['dest_folder']} models."
-            )
+            print(f"🎉 Successfully downloaded and extracted {config['dest_folder']} models.")
         except Exception as e:
             print(f"❌ Failed to process {config['zip_name']}: {e}")
             if os.path.exists(zip_path):

@@ -1,5 +1,6 @@
-from application.ports.cache import ICacheService
 import valkey.asyncio as valkey
+
+from application.ports.cache import ICacheService
 
 
 class ValkeyCacheService(ICacheService):

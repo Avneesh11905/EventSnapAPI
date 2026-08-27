@@ -1,27 +1,26 @@
-from config.storage import storage_settings
-from application.ports.storage import IStorageService
 import asyncio
+import base64
+import os
+import tempfile
+import zipfile
+
 from aioboto3 import Session
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from tenacity import (
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
 )
-from typing import List
-import zipfile
-import tempfile
+
+from application.ports.storage import IStorageService
+from config.storage import storage_settings
 from domain.exceptions import StorageDownloadError
-import os
-import base64
 
 
 class S3StorageService(IStorageService):
-    def __init__(
-        self, endpoint_url: str, bucket_name: str, access_key: str, secret_key: str
-    ):
+    def __init__(self, endpoint_url: str, bucket_name: str, access_key: str, secret_key: str):
         self.endpoint_url = endpoint_url
         self.bucket_name = bucket_name
         self.access_key = access_key
@@ -34,7 +33,7 @@ class S3StorageService(IStorageService):
             region_name="auto",
         )
 
-    async def list_images(self, folder_path: str) -> List[str]:
+    async def list_images(self, folder_path: str) -> list[str]:
         session = self._get_session()
         keys = []
         prefix = folder_path if folder_path.endswith("/") else f"{folder_path}/"
@@ -48,9 +47,7 @@ class S3StorageService(IStorageService):
             ),
         ) as s3:
             paginator = s3.get_paginator("list_objects_v2")
-            async for page in paginator.paginate(
-                Bucket=self.bucket_name, Prefix=prefix
-            ):
+            async for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
                 if "Contents" in page:
                     for obj in page["Contents"]:
                         keys.append(obj["Key"])
@@ -59,9 +56,7 @@ class S3StorageService(IStorageService):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type(
-            (ClientError, asyncio.TimeoutError, ConnectionError)
-        ),
+        retry=retry_if_exception_type((ClientError, asyncio.TimeoutError, ConnectionError)),
         reraise=True,
     )
     async def _download_images_base(
@@ -89,7 +84,8 @@ class S3StorageService(IStorageService):
         ) as s3_client:
             tasks = [fetch_single(s3_client, key) for key in keys]
             results = await asyncio.gather(*tasks)
-            print('results in s3:', results); return results
+            print("results in s3:", results)
+            return results
 
 
 class S3StorageServiceB64(S3StorageService):
@@ -102,7 +98,7 @@ class S3StorageServiceBytes(S3StorageService):
         return await self._download_images_base(keys, as_b64=False)  # type: ignore
 
     async def create_zip_from_images(
-        self, zip_path: str, image_paths: List[dict], progress_callback=None
+        self, zip_path: str, image_paths: list[dict], progress_callback=None
     ) -> None:
         session = self._get_session()
         total = len(image_paths)
@@ -185,20 +181,16 @@ class S3StorageServiceBytes(S3StorageService):
         session = self._get_session()
         async with session.client("s3", endpoint_url=self.endpoint_url) as s3:
             paginator = s3.get_paginator("list_objects_v2")
-            async for page in paginator.paginate(
-                Bucket=self.bucket_name, Prefix=prefix
-            ):
+            async for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
                 if "Contents" in page:
-                    objects_to_delete = [
-                        {"Key": obj["Key"]} for obj in page["Contents"]
-                    ]
+                    objects_to_delete = [{"Key": obj["Key"]} for obj in page["Contents"]]
                     if objects_to_delete:
                         await s3.delete_objects(
                             Bucket=self.bucket_name,
                             Delete={"Objects": objects_to_delete, "Quiet": True},
                         )
 
-    async def delete_objects(self, keys: List[str]) -> None:
+    async def delete_objects(self, keys: list[str]) -> None:
         if not keys:
             return
         session = self._get_session()

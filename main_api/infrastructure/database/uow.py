@@ -1,6 +1,7 @@
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
 from application.ports.uow import IUnitOfWork
 from infrastructure.database.repository import PostgresEventRepository
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 
 class AsyncSqlAlchemyUnitOfWork(IUnitOfWork):

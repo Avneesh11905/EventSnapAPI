@@ -1,7 +1,8 @@
-import pytest
-import cv2
 import base64
+
+import cv2
 import httpx
+import pytest
 from grpc import aio
 
 from presentation.grpc.proto import inference_pb2, inference_pb2_grpc
@@ -35,9 +36,7 @@ async def test_inference_grpc_real_batch_64(real_1024_image_bytes: bytes):
         ("grpc.max_send_message_length", 256 * 1024 * 1024),
     ]
 
-    async with aio.insecure_channel(
-        "localhost:50051", options=channel_options
-    ) as channel:
+    async with aio.insecure_channel("localhost:50051", options=channel_options) as channel:
         stub = inference_pb2_grpc.FaceInferenceStub(channel)
         batch_size = 64
 
@@ -66,9 +65,7 @@ async def test_inference_http_real_batch_64(real_1024_image_base64: str):
     }
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "http://localhost:5000/", json=payload, timeout=60.0
-        )
+        response = await client.post("http://localhost:5000/", json=payload, timeout=60.0)
 
         assert response.status_code == 200
         data = response.json()

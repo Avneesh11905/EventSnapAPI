@@ -1,21 +1,23 @@
-from fastapi import APIRouter, Depends
-from dependency_injector.wiring import inject, Provide
-from infrastructure.di_container import Container
-from application.use_cases.events import (
-    StartEventEncodingUseCase,
-    CheckEncodingStatusUseCase,
-    GetEncodedCountUseCase,
-    DeleteEventDataUseCase,
-)
-from presentation.api.schemas import (
-    EncodeEventRequest,
-    EnqueueTaskResponse,
-    EncodingStatusResponse,
-    EncodedCountResponse,
-    DeleteDataResponse,
-)
 import asyncio
 import dataclasses
+
+from dependency_injector.wiring import Provide, inject
+from fastapi import APIRouter, Depends
+
+from application.use_cases.events import (
+    CheckEncodingStatusUseCase,
+    DeleteEventDataUseCase,
+    GetEncodedCountUseCase,
+    StartEventEncodingUseCase,
+)
+from infrastructure.di_container import Container
+from presentation.api.schemas import (
+    DeleteDataResponse,
+    EncodedCountResponse,
+    EncodeEventRequest,
+    EncodingStatusResponse,
+    EnqueueTaskResponse,
+)
 
 router = APIRouter()
 
@@ -24,9 +26,7 @@ router = APIRouter()
 @inject
 async def start_event_encoding(
     request: EncodeEventRequest,
-    use_case: StartEventEncodingUseCase = Depends(
-        Provide[Container.start_event_encoding_use_case]
-    ),
+    use_case: StartEventEncodingUseCase = Depends(Provide[Container.start_event_encoding_use_case]),
 ):
     task_id = use_case.execute(
         request.event_code,
@@ -81,9 +81,7 @@ async def get_encoding_status(
 @inject
 async def get_encoded_image_count(
     event_code: str,
-    use_case: GetEncodedCountUseCase = Depends(
-        Provide[Container.get_encoded_count_use_case]
-    ),
+    use_case: GetEncodedCountUseCase = Depends(Provide[Container.get_encoded_count_use_case]),
 ):
     dto = await use_case.execute(event_code)
     return EncodedCountResponse(**dataclasses.asdict(dto))
@@ -94,9 +92,7 @@ async def get_encoded_image_count(
 async def delete_event_data(
     event_code: str,
     event_id: str | None = None,
-    use_case: DeleteEventDataUseCase = Depends(
-        Provide[Container.delete_event_data_use_case]
-    ),
+    use_case: DeleteEventDataUseCase = Depends(Provide[Container.delete_event_data_use_case]),
 ):
     dto = await use_case.execute(event_code, event_id)
     return DeleteDataResponse(**dataclasses.asdict(dto))
@@ -104,9 +100,7 @@ async def delete_event_data(
 
 @router.post("/cancel-encoding/{event_code}")
 @inject
-async def cancel_encoding(
-    event_code: str, queue_service=Depends(Provide[Container.queue_service])
-):
+async def cancel_encoding(event_code: str, queue_service=Depends(Provide[Container.queue_service])):
     await queue_service.cancel_event_tasks(event_code)
     return {
         "success": True,

@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
 class FaceEncoding:
-    embedding: List[float]
+    embedding: list[float]
     confidence: float
 
 

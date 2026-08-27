@@ -1,16 +1,17 @@
-from config.inference import inference_settings
-from application.ports.storage import IStorageService
-from application.ports.inference import IInferenceService
-from application.ports.uow import IUnitOfWork
-from application.ports.queue import ITaskQueueService
-from application.ports.cache import ICacheService
-from typing import Callable
 import uuid
+from collections.abc import Callable
+
 from application.dtos import (
     BackgroundEncodingResult,
     BackgroundZipResult,
     EventEncodingDTO,
 )
+from application.ports.cache import ICacheService
+from application.ports.inference import IInferenceService
+from application.ports.queue import ITaskQueueService
+from application.ports.storage import IStorageService
+from application.ports.uow import IUnitOfWork
+from config.inference import inference_settings
 
 
 class EncodeImageBatchUseCase[T]:
@@ -34,8 +35,8 @@ class EncodeImageBatchUseCase[T]:
         nms_thresh: float,
     ) -> dict:
 
-        import time
         import logging
+        import time
 
         logger = logging.getLogger(__name__)
 
@@ -54,9 +55,7 @@ class EncodeImageBatchUseCase[T]:
         images = await self.storage_service.download_images(batch_thumb_keys)
 
         dl_time = time.time()
-        logger.info(
-            f"download_images took {dl_time - start_time:.2f}s for {len(keys)} images"
-        )
+        logger.info(f"download_images took {dl_time - start_time:.2f}s for {len(keys)} images")
 
         valid_keys: list[str] = []
         valid_images: list[T] = []
@@ -107,9 +106,7 @@ class EncodeImageBatchUseCase[T]:
             db_start = time.time()
 
             # Check if this event was deleted while we were encoding
-            is_canceled = await self.cache_service.get_flag(
-                f"cancel_encode:{event_code}"
-            )
+            is_canceled = await self.cache_service.get_flag(f"cancel_encode:{event_code}")
             if is_canceled:
                 logger.warning(
                     f"Event {event_code} was deleted during batch processing. Aborting insert."
@@ -124,8 +121,7 @@ class EncodeImageBatchUseCase[T]:
 
                 if valid_keys:
                     processed_data = [
-                        {"event_code": event_code, "image_path": key}
-                        for key in valid_keys
+                        {"event_code": event_code, "image_path": key} for key in valid_keys
                     ]
                     await uow.event_repo.save_processed_images(processed_data)
 
@@ -136,9 +132,7 @@ class EncodeImageBatchUseCase[T]:
             )
 
             encoded = sum(
-                1
-                for image_faces in results
-                if any(f.get("embedding") for f in image_faces)
+                1 for image_faces in results if any(f.get("embedding") for f in image_faces)
             )
             no_encodings_found = len(valid_keys) - encoded
             return {
@@ -148,7 +142,7 @@ class EncodeImageBatchUseCase[T]:
                 "failures": failed_keys,
             }
         except Exception as e:
-            from domain.exceptions import TaskCanceledError, InferenceError
+            from domain.exceptions import InferenceError, TaskCanceledError
 
             if isinstance(e, TaskCanceledError):
                 raise
@@ -178,20 +172,14 @@ class ProcessEventEncodingUseCase:
         lock_name = f"lock:encode:{event_code}"
 
         # Try to acquire the lock. If it exists, return 409 Conflict via Exception handler.
-        lock_acquired = await self.cache_service.acquire_lock(
-            lock_name, 3600
-        )  # 1 hour expiration
+        lock_acquired = await self.cache_service.acquire_lock(lock_name, 3600)  # 1 hour expiration
         if not lock_acquired:
             from domain.exceptions import TaskAlreadyInProgressError
 
-            raise TaskAlreadyInProgressError(
-                "Encoding task already in progress for this event"
-            )
+            raise TaskAlreadyInProgressError("Encoding task already in progress for this event")
 
         try:
-            update_state_cb(
-                "INITIALIZING", {"progress": 0, "status": "Listing Storage files..."}
-            )
+            update_state_cb("INITIALIZING", {"progress": 0, "status": "Listing Storage files..."})
 
             base_folder = f"event/{event_code}"
             thumbs_folder = f"{base_folder}/thumbs"
@@ -204,18 +192,14 @@ class ProcessEventEncodingUseCase:
             all_raw_keys = [k.replace("/thumbs/", "/raw/", 1) for k in all_thumb_keys]
 
             async with self.uow as uow:
-                already_encoded = await uow.event_repo.get_already_encoded_images(
-                    event_code
-                )
+                already_encoded = await uow.event_repo.get_already_encoded_images(event_code)
 
             new_raw_keys = [k for k in all_raw_keys if k not in already_encoded]
             skipped = len(all_thumb_keys) - len(new_raw_keys)
             total_images = len(new_raw_keys)
 
             if total_images == 0:
-                return BackgroundEncodingResult(
-                    total=len(all_thumb_keys), skipped=skipped
-                )
+                return BackgroundEncodingResult(total=len(all_thumb_keys), skipped=skipped)
 
             update_state_cb(
                 "PROCESSING",
@@ -276,9 +260,7 @@ class CreateEventZipUseCase:
 
         def progress_callback(current, state_name, status_msg):
             progress_pct = int((current / total) * 90)
-            update_state_cb(
-                state_name, {"progress": progress_pct, "status_msg": status_msg}
-            )
+            update_state_cb(state_name, {"progress": progress_pct, "status_msg": status_msg})
 
         try:
             await self.storage_service.create_zip_from_images(
@@ -312,6 +294,7 @@ class DeleteImageBatchUseCase:
         update_state_cb: Callable[[str, dict], None] = lambda *args: None,
     ) -> dict:
         import logging
+
         from celery import current_app
 
         logger = logging.getLogger(__name__)
@@ -344,7 +327,5 @@ class DeleteImageBatchUseCase:
             await uow.event_repo.delete_keys(event_code, raw_keys)
             await uow.commit()
 
-        update_state_cb(
-            "SUCCESS", {"status": f"Successfully deleted {len(keys)} images."}
-        )
+        update_state_cb("SUCCESS", {"status": f"Successfully deleted {len(keys)} images."})
         return {"success": True, "deleted": len(keys)}

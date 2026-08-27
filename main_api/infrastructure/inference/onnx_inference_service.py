@@ -1,5 +1,6 @@
-from application.ports.inference import IInferenceService
 import httpx
+
+from application.ports.inference import IInferenceService
 
 
 class OnnxInferenceService(IInferenceService[str]):
@@ -21,16 +22,14 @@ class OnnxInferenceService(IInferenceService[str]):
             },
         }
 
-        import time
         import logging
+        import time
 
         logger = logging.getLogger(__name__)
         # using a 60s timeout to prevent hanging if inference server dies
         async with httpx.AsyncClient(timeout=150.0) as client:
             t0 = time.time()
-            response = await client.post(
-                f"{self.api_url}/", json=payload, headers=headers
-            )
+            response = await client.post(f"{self.api_url}/", json=payload, headers=headers)
             t1 = time.time()
             logger.info(f"httpx.post (headers+body) took {t1 - t0:.2f}s")
 

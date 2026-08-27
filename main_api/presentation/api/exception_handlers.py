@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+
 from domain.exceptions import (
-    EventSnapError,
     EventNotFoundError,
+    EventSnapError,
     NoMatchesFoundError,
     TaskAlreadyInProgressError,
 )

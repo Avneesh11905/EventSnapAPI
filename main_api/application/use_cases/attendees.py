@@ -1,22 +1,21 @@
-import numpy as np
-from typing import List
 import asyncio
+from collections.abc import Callable
+
+import numpy as np
+
+from application.dtos import AttendeeSortDTO, ZipCheckDTO
+from application.ports.image_services import IImageAugmenter
 from application.ports.inference import IInferenceService
 from application.ports.queue import ITaskQueueService
-from application.ports.uow import IUnitOfWork
 from application.ports.storage import IStorageService
-from application.ports.image_services import IImageAugmenter
-from application.dtos import AttendeeSortDTO, ZipCheckDTO
-from domain.exceptions import (
-    InvalidReferenceImagesError,
-    EventNotFoundError,
-    NoMatchesFoundError,
-    FaceValidationError,
-)
+from application.ports.uow import IUnitOfWork
 from config.inference import inference_settings
-
-
-from typing import Callable
+from domain.exceptions import (
+    EventNotFoundError,
+    FaceValidationError,
+    InvalidReferenceImagesError,
+    NoMatchesFoundError,
+)
 
 
 class EncodeAttendeeUseCase[T]:
@@ -39,9 +38,7 @@ class EncodeAttendeeUseCase[T]:
         converted_images = [self.decode_fn(img) for img in attendee_images_base64]
 
         # 1. Validation Step: Check original images for multiple faces or no faces
-        original_results = await self.inference_service.get_face_encodings(
-            converted_images
-        )
+        original_results = await self.inference_service.get_face_encodings(converted_images)
 
         validation_errors = []
         no_faces_count = 0
@@ -50,14 +47,10 @@ class EncodeAttendeeUseCase[T]:
         for i, image_faces in enumerate(original_results):
             if len(image_faces) > 1:
                 bboxes = [face["bbox"] for face in image_faces]
-                validation_errors.append(
-                    {"image_index": i, "bboxes": bboxes, "issue": "multiple"}
-                )
+                validation_errors.append({"image_index": i, "bboxes": bboxes, "issue": "multiple"})
                 multi_faces_count += 1
             elif len(image_faces) == 0:
-                validation_errors.append(
-                    {"image_index": i, "bboxes": [], "issue": "none"}
-                )
+                validation_errors.append({"image_index": i, "bboxes": [], "issue": "none"})
                 no_faces_count += 1
 
         if validation_errors:
@@ -86,13 +79,9 @@ class EncodeAttendeeUseCase[T]:
         augmented_b64_images = await asyncio.to_thread(
             self.augmenter.augment, attendee_images_base64
         )
-        converted_augmented_images = [
-            self.decode_fn(img) for img in augmented_b64_images
-        ]
+        converted_augmented_images = [self.decode_fn(img) for img in augmented_b64_images]
 
-        results = await self.inference_service.get_face_encodings(
-            converted_augmented_images
-        )
+        results = await self.inference_service.get_face_encodings(converted_augmented_images)
 
         embeddings_list = []
         for image_faces in results:
@@ -112,18 +101,14 @@ class SortAttendeeUseCase:
     def __init__(self, uow: IUnitOfWork):
         self.uow = uow
 
-    async def execute(
-        self, event_code: str, attendee_encoding: List[float]
-    ) -> AttendeeSortDTO:
+    async def execute(self, event_code: str, attendee_encoding: list[float]) -> AttendeeSortDTO:
         if not attendee_encoding:
             raise InvalidReferenceImagesError("Must provide a valid attendee encoding.")
 
         async with self.uow as uow:
             has_data = await uow.event_repo.check_event_has_data(event_code)
             if not has_data:
-                raise EventNotFoundError(
-                    f"No encoded data found for event {event_code}."
-                )
+                raise EventNotFoundError(f"No encoded data found for event {event_code}.")
 
             matched_paths = await uow.event_repo.find_matches(
                 event_code,
