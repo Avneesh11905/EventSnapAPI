@@ -13,7 +13,7 @@ from domain.exceptions import (
     NoMatchesFoundError,
     FaceValidationError,
 )
-from config import settings
+from config.inference import inference_settings
 
 
 from typing import Callable
@@ -128,7 +128,7 @@ class SortAttendeeUseCase:
             matched_paths = await uow.event_repo.find_matches(
                 event_code,
                 attendee_encoding,
-                settings.SIMILARITY_THRESHOLD,
+                inference_settings.SIMILARITY_THRESHOLD,
             )
 
         if not matched_paths:

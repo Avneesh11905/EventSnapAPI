@@ -1,4 +1,4 @@
-from config import settings
+from config.inference import inference_settings
 from application.ports.storage import IStorageService
 from application.ports.inference import IInferenceService
 from application.ports.uow import IUnitOfWork
@@ -228,7 +228,7 @@ class ProcessEventEncodingUseCase:
                 },
             )
 
-            batch_size = settings.INFERENCE_BATCH_SIZE
+            batch_size = inference_settings.INFERENCE_BATCH_SIZE
             chunks = []
             for i in range(0, total_images, batch_size):
                 chunks.append(new_raw_keys[i : i + batch_size])

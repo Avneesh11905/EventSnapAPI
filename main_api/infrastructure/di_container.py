@@ -23,7 +23,10 @@ from infrastructure.queue.celery_service import CeleryTaskQueueService
 from infrastructure.cache.valkey_service import ValkeyCacheService
 from infrastructure.image_augmenter import OpenCVImageAugmenter
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from config import settings
+from config.database import db_settings
+from config.storage import storage_settings
+from config.inference import inference_settings
+from config.queue import queue_settings
 from sqlalchemy.pool import NullPool
 
 
@@ -40,12 +43,12 @@ class Container(containers.DeclarativeContainer):
     config = providers.Configuration()
     config.from_dict(
         {
-            "db_url": settings.DATABASE_URL,
-            "storage_endpoint": settings.STORAGE_ENDPOINT,
-            "storage_bucket": settings.STORAGE_BUCKET_NAME,
-            "storage_access": settings.STORAGE_ACCESS_KEY,
-            "storage_secret": settings.STORAGE_SECRET_KEY,
-            "inference_url": settings.INFERENCE_API_URL,
+            "db_url": db_settings.DATABASE_URL,
+            "storage_endpoint": storage_settings.STORAGE_ENDPOINT,
+            "storage_bucket": storage_settings.STORAGE_BUCKET_NAME,
+            "storage_access": storage_settings.STORAGE_ACCESS_KEY,
+            "storage_secret": storage_settings.STORAGE_SECRET_KEY,
+            "inference_url": inference_settings.INFERENCE_API_URL,
         }
     )
 
@@ -60,7 +63,7 @@ class Container(containers.DeclarativeContainer):
     uow = providers.Factory(AsyncSqlAlchemyUnitOfWork, session_factory=session_factory)
 
     cache_service = providers.Factory(
-        ValkeyCacheService, valkey_url=settings.VALKEY_URL
+        ValkeyCacheService, valkey_url=queue_settings.VALKEY_URL
     )
 
     queue_service = providers.Factory(
@@ -69,7 +72,7 @@ class Container(containers.DeclarativeContainer):
 
     image_augmenter = providers.Factory(OpenCVImageAugmenter)
 
-    if settings.INFERENCE_API_GRPC_URL:
+    if inference_settings.INFERENCE_API_GRPC_URL:
         from infrastructure.storage.s3_service import S3StorageServiceBytes
         from infrastructure.inference.grpc_inference_service import GrpcInferenceService
         import base64
@@ -83,7 +86,7 @@ class Container(containers.DeclarativeContainer):
         )
         inference_service = providers.Factory(
             GrpcInferenceService,
-            api_url=settings.INFERENCE_API_GRPC_URL,
+            api_url=inference_settings.INFERENCE_API_GRPC_URL,
         )
         encode_attendee_use_case = providers.Factory(
             EncodeAttendeeUseCase[bytes],

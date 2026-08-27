@@ -1,10 +1,10 @@
 from celery import Celery
-from config import settings
+from config.queue import queue_settings
 
 celery_app = Celery(
     "eventsnap_tasks",
-    broker=settings.RABBITMQ_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+    broker=queue_settings.RABBITMQ_URL,
+    backend=queue_settings.CELERY_RESULT_BACKEND,
     include=["infrastructure.queue.celery_workers"],
 )
 

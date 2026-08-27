@@ -120,11 +120,11 @@ class CeleryTaskQueueService(ITaskQueueService):
                                     int((completed / total) * 100) if total else 0
                                 )
                                 # Multiply batches by batch size to get image count, capped at total
-                                from config import settings
+                                from config.inference import inference_settings
 
                                 total_images = res.result.get("total", total)
                                 status_info["processed"] = min(
-                                    completed * settings.INFERENCE_BATCH_SIZE,
+                                    completed * inference_settings.INFERENCE_BATCH_SIZE,
                                     total_images,
                                 )
                                 status_info["total"] = total_images

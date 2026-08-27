@@ -1,4 +1,4 @@
-from config import settings
+from config.storage import storage_settings
 from application.ports.storage import IStorageService
 import asyncio
 from aioboto3 import Session
@@ -82,7 +82,7 @@ class S3StorageService(IStorageService):
             endpoint_url=self.endpoint_url,
             config=Config(
                 signature_version="s3v4",
-                max_pool_connections=settings.S3_MAX_POOL_CONNECTIONS,
+                max_pool_connections=storage_settings.S3_MAX_POOL_CONNECTIONS,
                 request_checksum_calculation="when_required",
                 response_checksum_validation="when_required",
             ),
@@ -108,7 +108,7 @@ class S3StorageServiceBytes(S3StorageService):
         total = len(image_paths)
         s3_config = Config(
             signature_version="s3v4",
-            max_pool_connections=settings.S3_MAX_POOL_CONNECTIONS,
+            max_pool_connections=storage_settings.S3_MAX_POOL_CONNECTIONS,
             retries={"max_attempts": 0},
             request_checksum_calculation="when_required",
             response_checksum_validation="when_required",

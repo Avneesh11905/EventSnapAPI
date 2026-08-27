@@ -7,7 +7,7 @@ from presentation.api.routers import events, attendees, images
 from infrastructure.di_container import get_container
 from infrastructure.queue.celery_app import celery_app
 from sqlalchemy import text
-from config import settings
+from config.app import app_settings
 from contextlib import asynccontextmanager
 import logging
 
@@ -30,7 +30,7 @@ app = FastAPI(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 cors_origins = [
-    origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()
+    origin.strip() for origin in app_settings.CORS_ORIGINS.split(",") if origin.strip()
 ]
 
 app.add_middleware(
