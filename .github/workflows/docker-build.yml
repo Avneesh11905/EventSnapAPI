@@ -25,8 +25,78 @@ jobs:
             inference:
               - 'inference_api/**'
 
-  build-and-push-main-api:
+  ci-main-api:
     needs: detect-changes
+    if: ${{  needs.detect-changes.outputs.main == 'true'  }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: "main_api/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: "main_api/.python-version"
+
+      - name: Install dependencies
+        working-directory: ./main_api
+        run: uv sync --all-extras --dev
+
+      - name: Run Mypy Type Checking
+        working-directory: ./main_api
+        run: uv run mypy .
+
+      - name: Run Ruff Linting
+        working-directory: ./main_api
+        run: uv run ruff check .
+
+      - name: Run Pytest
+        working-directory: ./main_api
+        run: uv run pytest
+
+  ci-inference-api:
+    needs: detect-changes
+    if: ${{  needs.detect-changes.outputs.inference == 'true'  }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: "inference_api/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: "inference_api/.python-version"
+
+      - name: Install dependencies
+        working-directory: ./inference_api
+        run: uv sync --all-extras --dev
+
+      - name: Run Mypy Type Checking
+        working-directory: ./inference_api
+        run: uv run mypy .
+
+      - name: Run Ruff Linting
+        working-directory: ./inference_api
+        run: uv run ruff check .
+
+      - name: Run Pytest
+        working-directory: ./inference_api
+        run: uv run pytest
+
+  build-and-push-main-api:
+    needs: [detect-changes, ci-main-api]
     if: ${{ needs.detect-changes.outputs.main == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +134,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-and-push-inference-cpu:
-    needs: detect-changes
+    needs: [detect-changes, ci-inference-api]
     if: ${{ needs.detect-changes.outputs.inference == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -102,7 +172,7 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/inference_api:buildcache-cpu,mode=max
 
   build-and-push-inference-gpu:
-    needs: detect-changes
+    needs: [detect-changes, ci-inference-api]
     if: ${{ needs.detect-changes.outputs.inference == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -200,3 +270,4 @@ jobs:
             done
             sudo docker compose up -d --force-recreate $SCALE_ARGS
             sudo docker exec eventsnap_nginx nginx -s reload
+
