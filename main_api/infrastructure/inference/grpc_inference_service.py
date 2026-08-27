@@ -25,7 +25,15 @@ class GrpcInferenceService(IInferenceService[bytes]):
         nms_threshold: float = 0.4,
     ) -> list[list[dict]]:
 
-        async with aio.insecure_channel(self.api_url, options=self.channel_options) as channel:
+        is_secure = self.api_url.endswith(":443")
+        
+        channel_mgr = (
+            aio.secure_channel(self.api_url, grpc.ssl_channel_credentials(), options=self.channel_options)
+            if is_secure
+            else aio.insecure_channel(self.api_url, options=self.channel_options)
+        )
+
+        async with channel_mgr as channel:
             stub = inference_pb2_grpc.FaceInferenceStub(channel)
 
             request = inference_pb2.InferenceRequest(  # type: ignore
@@ -36,7 +44,7 @@ class GrpcInferenceService(IInferenceService[bytes]):
             )
 
             try:
-                response = await stub.ExtractFaces(request, timeout=60.0)
+                response = await stub.ExtractFaces(request, timeout=300.0)
             except grpc.aio.AioRpcError as e:
                 logger.error(f"[gRPC] Inference failed: {e.details()}")
                 raise RuntimeError(f"Inference API Error: {e.details()}") from e
@@ -56,3 +64,4 @@ class GrpcInferenceService(IInferenceService[bytes]):
                 results.append(faces)
 
             return results
+
